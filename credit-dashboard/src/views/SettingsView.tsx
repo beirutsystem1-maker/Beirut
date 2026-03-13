@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ShieldAlert, Trash2, Database, Loader2, X, AlertTriangle, KeyRound, Building2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSettings } from '../logic/SettingsContext';
+import { SERVER_URL } from '../logic/useClients';
 
 export function SettingsView() {
     const { settings, updateSettings } = useSettings();
@@ -28,10 +29,10 @@ export function SettingsView() {
         setStatusText("Limpiando base de datos en Supabase...");
 
         try {
-            const res = await fetch('http://localhost:3001/api/settings/wipe', { method: 'POST' });
+            const res = await fetch(`${SERVER_URL}/settings/wipe`, { method: 'POST' });
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.error || 'Error desconocido del servidor local');
+                throw new Error(data.error || 'Error desconocido del servidor');
             }
 
             localStorage.clear();
@@ -53,7 +54,7 @@ export function SettingsView() {
         setShowDemoModal(false);
 
         try {
-            const res = await fetch('http://localhost:3001/api/settings/demo', { method: 'POST' });
+            const res = await fetch(`${SERVER_URL}/settings/demo`, { method: 'POST' });
             if (!res.ok) {
                 const data = await res.json();
                 throw new Error(data.error || 'Error en servidor local al inyectar demo');

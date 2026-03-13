@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
-const SERVER_URL = 'http://localhost:3001/api';
+export const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export interface Product {
     description: string;

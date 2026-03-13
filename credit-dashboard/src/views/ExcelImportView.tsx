@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { AssignCreditModal } from '../components/AssignCreditModal';
 import { useBCV } from '../hooks/BCVContext';
+import { SERVER_URL } from '../logic/useClients';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface ProductRow {
@@ -251,7 +252,7 @@ export function ExcelImportView() {
             formData.append('file', file);
             formData.append('exchangeRate', String(rateToUse));
 
-            fetch('http://localhost:3001/api/pdf/extract', {
+            fetch(`${SERVER_URL}/pdf/extract`, {
                 method: 'POST',
                 body: formData,
             })

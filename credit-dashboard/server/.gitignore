@@ -1,0 +1,6 @@
+node_modules/
+.env
+data/
+*.db
+debug_pdf_text.txt
+test_models.js

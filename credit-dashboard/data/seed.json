@@ -1,0 +1,43 @@
+{
+    "clients": [
+        {
+            "id": "c1",
+            "name": "Constructora El Puente C.A.",
+            "rif": "J-12345678-9",
+            "phone": "+584141234567",
+            "email": "contacto@elpuente.com",
+            "is_active": true
+        },
+        {
+            "id": "c2",
+            "name": "Ferretería La Tuerca Ideal",
+            "rif": "J-98765432-1",
+            "phone": "+584129876543",
+            "email": "compras@latuerca.com",
+            "is_active": true
+        }
+    ],
+    "invoices": [
+        {
+            "id": "i1",
+            "client_id": "c1",
+            "valery_note_id": "VAL-1001",
+            "issue_date": "2026-03-01T10:00:00Z",
+            "due_date": "2026-03-15T10:00:00Z",
+            "total_amount": 1500.00,
+            "balance": 1500.00,
+            "status": "pendiente"
+        },
+        {
+            "id": "i2",
+            "client_id": "c2",
+            "valery_note_id": "VAL-1002",
+            "issue_date": "2026-02-15T10:00:00Z",
+            "due_date": "2026-03-01T10:00:00Z",
+            "total_amount": 850.50,
+            "balance": 850.50,
+            "status": "en mora"
+        }
+    ],
+    "transactions": []
+}

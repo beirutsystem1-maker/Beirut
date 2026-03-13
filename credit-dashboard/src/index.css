@@ -1,0 +1,379 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* --- Light Mode: Financial Minimalism --- */
+    --background: 210 40% 98%;
+    /* #F8FAFC — ultra light grey */
+    --foreground: 215 28% 12%;
+    /* #0F1923 — near black */
+
+    --card: 0 0% 100%;
+    /* #FFFFFF — pure white */
+    --card-foreground: 215 28% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 28% 12%;
+
+    --primary: 214 72% 16%;
+    /* #0A2540 — deep navy (Stripe) */
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 214 72% 16%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 248 87% 61%;
+    /* #635BFF — electric violet-blue */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 76% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 248 87% 61%;
+
+    --radius: 0.75rem;
+
+    /* --- Semantic Brand Tokens --- */
+    --success: 158 64% 40%;
+    /* #16a34a — green */
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    /* #f59e0b — amber */
+    --warning-foreground: 0 0% 100%;
+    --overdue: 0 90% 60%;
+    /* #f43f5e — rose red */
+    --overdue-foreground: 0 0% 100%;
+    --gold: 43 96% 60%;
+    /* #f5c230 — gold */
+  }
+
+  .dark {
+    /* --- Dark Mode: Deep Space Financial --- */
+    --background: 222 47% 5%;
+    /* #070D1A — deep space */
+    --foreground: 210 40% 96%;
+
+    --card: 220 45% 9%;
+    /* #0F1C2E — dark card */
+    --card-foreground: 210 40% 96%;
+
+    --popover: 220 45% 9%;
+    --popover-foreground: 210 40% 96%;
+
+    --primary: 210 100% 72%;
+    /* #60a5fa — light blue for dark */
+    --primary-foreground: 222 47% 5%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 248 87% 68%;
+    /* #7C74FF — lighter electric for dark */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 18%;
+    --input: 217 33% 18%;
+    --ring: 248 87% 68%;
+
+    --success: 158 64% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --overdue: 0 85% 60%;
+    --overdue-foreground: 0 0% 100%;
+    --gold: 43 96% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ==============================
+   PREMIUM ANIMATIONS & KEYFRAMES
+   ============================== */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shrinkX {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes invoiceExit {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    max-height: 200px;
+    margin-bottom: 0px;
+    padding-bottom: 0px;
+  }
+
+  40% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+    background-color: hsl(158 64% 95%);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+    max-height: 0px;
+    margin-bottom: -8px;
+    padding-bottom: 0px;
+    overflow: hidden;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==============================
+   UTILITY CLASSES
+   ============================== */
+@layer utilities {
+  .animate-shimmer {
+    background: linear-gradient(90deg,
+        hsl(var(--muted)) 25%,
+        hsl(var(--border)) 50%,
+        hsl(var(--muted)) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.4s ease-out both;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out both;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.25s ease-out both;
+  }
+
+  .animate-slide-in-left {
+    animation: slideInLeft 0.35s ease-out both;
+  }
+
+  .animate-invoice-exit {
+    animation: invoiceExit 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    pointer-events: none;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out both;
+  }
+
+  .stagger-1 {
+    animation-delay: 0.05s;
+  }
+
+  .stagger-2 {
+    animation-delay: 0.10s;
+  }
+
+  .stagger-3 {
+    animation-delay: 0.15s;
+  }
+
+  .stagger-4 {
+    animation-delay: 0.20s;
+  }
+
+  /* Premium card hover lift */
+  .card-hover {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .card-hover:hover {
+    @apply -translate-y-0.5 shadow-lg;
+  }
+
+  /* Glass effect */
+  .glass {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .dark .glass {
+    background: rgba(15, 28, 46, 0.7);
+  }
+
+  /* Status pills */
+  .pill-active {
+    @apply bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200;
+  }
+
+  .dark .pill-active {
+    @apply bg-emerald-950/50 text-emerald-400 ring-emerald-800;
+  }
+
+  .pill-warning {
+    @apply bg-amber-50 text-amber-700 ring-1 ring-amber-200;
+  }
+
+  .dark .pill-warning {
+    @apply bg-amber-950/50 text-amber-400 ring-amber-800;
+  }
+
+  .pill-overdue {
+    @apply bg-rose-50 text-rose-700 ring-1 ring-rose-200;
+  }
+
+  .dark .pill-overdue {
+    @apply bg-rose-950/50 text-rose-400 ring-rose-800;
+  }
+}
+
+/* ==============================
+   SCROLLBAR STYLING
+   ============================== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+/* Scrollbar fino para contenedores internos */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+  scroll-behavior: smooth;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 99px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.4);
+}

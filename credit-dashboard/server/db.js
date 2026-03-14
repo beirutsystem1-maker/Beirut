@@ -432,6 +432,7 @@ function getInvoiceById(id) {
 }
 
 module.exports = {
+  DB_PATH, // Exported for backup service
   init, persist, query, run, get, generateId, getNow,
   getMeta, setMeta, getOcrQuota, incrementOcrQuota,
   getAllClients, getClientById, insertClient, upsertClient, updateClient,

@@ -44,6 +44,7 @@ const express = require('express');
 const cors = require('cors');
 const { init: initDb } = require('./db');
 const { startSync, getState } = require('./sync');
+const { startBackupService } = require('./backup'); // Importar el servicio de respaldo
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -119,6 +120,9 @@ async function bootstrap() {
         console.log('╚══════════════════════════════════════════╝');
         console.log('');
         startSync(30000);
+        
+        // Iniciar servicio de respaldo automático a GitHub (cada 10 minutos)
+        startBackupService(10);
     });
 }
 

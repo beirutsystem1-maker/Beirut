@@ -43,8 +43,15 @@ export function Layout({
     const { settings } = useSettings();
     const { rate, parallelRate, setManualRate, setManualBcvRate, isLoading: isLoadingRate } = useBCV();
     
-    // El usuario pide que inicie abierto ("cubra la pantalla lateral") pero que conserve el modo "colapsable"
-    const [collapsed, setCollapsed] = useState(false);
+    // Se inicializa desde localStorage, o true por defecto para que siempre esté colapsado como pidió el usuario
+    const [collapsed, setCollapsed] = useState(() => {
+        const saved = localStorage.getItem('sidebar_collapsed');
+        return saved !== null ? JSON.parse(saved) : true;
+    });
+    
+    useEffect(() => {
+        localStorage.setItem('sidebar_collapsed', JSON.stringify(collapsed));
+    }, [collapsed]);
     
     // Tasa Paralela Local State
     const [tasaInputValue, setTasaInputValue] = useState(parallelRate.toString());
@@ -70,13 +77,14 @@ export function Layout({
     };
 
     return (
-        <div className="min-h-screen flex bg-background text-foreground font-sans">
+        <div className="h-screen flex bg-background text-foreground font-sans overflow-hidden">
             {/* ============ SIDEBAR ============ */}
             <aside
                 className={`
                     hidden md:flex flex-col border-r border-border
                     transition-[width] duration-300 ease-in-out flex-shrink-0
                     bg-gradient-to-b from-[#0A2540] to-[#0d1f38]
+                    h-full
                     ${collapsed ? 'w-[72px]' : 'w-[240px]'}
                 `}
             >
@@ -182,7 +190,7 @@ export function Layout({
             </aside>
 
             {/* ============ MAIN CONTENT ============ */}
-            <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+            <main className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
                 {/* ---- Top Header ---- */}
                 <header className="h-16 border-b border-border bg-card/80 glass flex items-center justify-between px-4 md:px-6 gap-4 flex-shrink-0 sticky top-0 z-20 backdrop-blur-md">
                     {/* Left: page title */}
@@ -351,8 +359,8 @@ export function Layout({
                 </header>
 
                 {/* ---- Page Content ---- */}
-                <div className="flex-1 overflow-y-auto bg-background">
-                    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+                <div className="flex-1 overflow-y-auto bg-background/50">
+                    <div className="p-4 md:p-8 w-full min-h-full">
                         {children}
                     </div>
                 </div>

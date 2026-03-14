@@ -538,7 +538,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="flex-1 flex flex-col space-y-6 animate-fade-in min-h-full">
 
             {/* ── Header ── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -660,7 +660,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                 </div>
 
                 {/* Desktop Table (Hidden on < md) */}
-                <div className="hidden md:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] relative scrollbar-thin">
+                <div className="hidden md:block overflow-x-auto overflow-y-auto flex-1 min-h-[400px] relative scrollbar-thin">
                     <table className="w-full text-sm">
                         <thead className="sticky top-0 z-10 bg-white dark:bg-card shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
                             <tr className="border-b border-border bg-muted/40 backdrop-blur-sm">

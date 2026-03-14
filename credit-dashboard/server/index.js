@@ -119,10 +119,11 @@ async function bootstrap() {
         console.log(`║     Puerto: ${PORT}                          ║`);
         console.log('╚══════════════════════════════════════════╝');
         console.log('');
-        startSync(30000);
+        // Motor de sincronización bidireccional (cada 5 segundos para comunicación constante)
+        startSync(5000);
         
-        // Iniciar servicio de respaldo automático a GitHub (cada 10 minutos)
-        startBackupService(10);
+        // Iniciar servicio de respaldo automático a GitHub (cada 30 segundos)
+        startBackupService(0.5);
     });
 }
 

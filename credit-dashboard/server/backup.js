@@ -76,13 +76,15 @@ async function performBackup() {
  * Starts the backup service with the specified interval in minutes.
  */
 function startBackupService(intervalMinutes = 10) {
-    console.log(`[BACKUP] Servicio de respaldo iniciado (cada ${intervalMinutes} minutos)`);
+    const intervalMs = intervalMinutes * 60 * 1000;
+    console.log(`[BACKUP] Servicio de respaldo iniciado (cada ${intervalMinutes} minutos / ${intervalMs / 1000}s)`);
     
-    // Initial backup after 1 minute to avoid blocking server start
-    setTimeout(performBackup, 60000);
+    // Initial backup after a shorter delay if interval is small
+    const initialDelay = Math.min(60000, intervalMs);
+    setTimeout(performBackup, initialDelay);
     
     // Periodic backup
-    setInterval(performBackup, intervalMinutes * 60 * 1000);
+    setInterval(performBackup, intervalMs);
 }
 
 module.exports = { startBackupService, performBackup };

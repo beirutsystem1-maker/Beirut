@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, X, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 export interface FichaCalendarioDato {
     id: string;
     clienteId: string;
@@ -19,7 +19,6 @@ interface Props {
     onVerHistorial: (fichaId: string, clienteId: string) => void;
 }
 
-const formatMoney = (val: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 const PRIORIDAD = { mora: 3, pendiente: 2, parcial: 1, pagado: 0 };
@@ -34,8 +33,6 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
     // PASO 1 — Estados para la ventana flotante
     const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
     const [fichasDelDia, setFichasDelDia] = useState<FichaCalendarioDato[]>([]);
-
-    const FACTOR = 1 + (factorRecargo / 100);
 
     const filteredFichas = useMemo(() => {
         if (selectedClientId === 'all') return fichas;

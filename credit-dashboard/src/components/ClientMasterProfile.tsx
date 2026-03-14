@@ -1,6 +1,6 @@
 import {
     X, FileText, AlertCircle, Eye, CheckCircle2,
-    Loader2, RefreshCw, ChevronDown, ChevronUp, Lock, Unlock, EyeOff, Edit2, Save, Trash2
+    Loader2, RefreshCw, ChevronDown, ChevronUp, Lock, Unlock, EyeOff, Edit2, Save, Trash2, DollarSign, CheckCircle
 } from 'lucide-react';
 import { useUpdateInvoiceProducts, useDeleteInvoice } from '../logic/useClients';
 import { useState, useEffect, useCallback } from 'react';
@@ -21,13 +21,6 @@ function formatCurrency(v: number) {
 
 function formatDate(d: string) {
     return new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function formatDateTime(d: string) {
-    return new Date(d).toLocaleString('es-VE', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-    });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -140,6 +133,11 @@ function InvoiceDetailModal({
     const itemsPerPage = 5;
     const totalPages = Math.ceil(editedProducts.length / itemsPerPage);
 
+    const paginatedProducts = editedProducts.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
+
     useEffect(() => {
         if (currentPage > totalPages && totalPages > 0) {
             setCurrentPage(totalPages);
@@ -166,6 +164,7 @@ function InvoiceDetailModal({
 
     // Lógica BCV (modo visual o total)
     const TASA_BCV = bcvRate;
+    const totalBCV = Math.round(granTotal * TASA_BCV * 100) / 100;
 
 
     const updateField = (i: number, field: 'quantity' | 'unit_price', val: string) => {
@@ -951,6 +950,10 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                 return next;
             });
             setMigratedIds(prev => new Set([...prev, ...newlyPaid]));
+
+            const remaining = (client.invoices || []).filter(
+                (inv: Invoice) => (balanceOverrides[inv.id] ?? inv.balance) > 0 && !newlyPaid.includes(inv.id)
+            );
         }, 460);
 
         return () => clearTimeout(timer);

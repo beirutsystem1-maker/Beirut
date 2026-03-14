@@ -277,9 +277,9 @@ function VentanaFlotante({ fecha, fichas, factorRecargo, onCerrar, onRegistrarPa
     const FACTOR = 1 + (factorRecargo / 100);
 
     return (
-        <div className="bg-white rounded-[16px] border border-[#e8e6e0] w-[560px] max-w-[90%] max-h-[80%] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,.18),0_2px_8px_rgba(0,0,0,.06)] animate-popIn">
+        <div className="bg-white rounded-[16px] border border-[#e8e6e0] w-[920px] max-w-[95%] max-h-[90%] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,.18),0_2px_8px_rgba(0,0,0,.06)] animate-popIn">
             {/* HEADER */}
-            <div className="p-[16px_20px_12px] flex items-start justify-between">
+            <div className="p-[16px_20px_12px] flex items-start justify-between sticky top-0 bg-white/95 backdrop-blur z-10">
                 <div>
                     <p className="text-[14px] font-medium text-[#1a1a18]">{fechaDisplay}</p>
                     <p className="text-[11px] text-[#888780] mt-[3px]">
@@ -292,7 +292,7 @@ function VentanaFlotante({ fecha, fichas, factorRecargo, onCerrar, onRegistrarPa
             <hr className="border-none border-t border-[#f0efe8] mx-[20px]" />
 
             {/* GRID DE FICHAS */}
-            <div className="p-[14px_16px] grid grid-cols-1 sm:grid-cols-2 gap-[10px]">
+            <div className="p-[14px_16px] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[10px]">
                 {fichas.map(f => (
                     <FichaCard 
                         key={f.id} 

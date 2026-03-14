@@ -30,7 +30,10 @@ function estadoMasGrave(fichasDelDia: FichaCalendarioDato[]) {
 export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistrarPago, onVerHistorial }: Props) {
     const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
     const [selectedClientId, setSelectedClientId] = useState<string>('all');
-    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    
+    // PASO 1 — Estados para la ventana flotante
+    const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
+    const [fichasDelDia, setFichasDelDia] = useState<FichaCalendarioDato[]>([]);
 
     const FACTOR = 1 + (factorRecargo / 100);
 
@@ -48,34 +51,53 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
         return map;
     }, [filteredFichas]);
 
+    // PASO 2 — Conectar el clic en un día
+    const handleDiaClick = (fechaISO: string) => {
+        if (diaSeleccionado === fechaISO) {
+            setDiaSeleccionado(null);
+            setFichasDelDia([]);
+            return;
+        }
+
+        const fichasDia = groupByDate.get(fechaISO) || [];
+        if (fichasDia.length === 0) return;
+
+        setDiaSeleccionado(fechaISO);
+        setFichasDelDia(fichasDia);
+    };
+
+    // PASO 7 — Cerrar al cambiar de año
     const changeYear = (delta: number) => {
+        setDiaSeleccionado(null);
+        setFichasDelDia([]);
         setCurrentYear(y => y + delta);
-        setSelectedDate(null);
+    };
+
+    // PASO 8 — Cerrar al cambiar filtro de cliente
+    const handleFiltroCliente = (clienteId: string) => {
+        setDiaSeleccionado(null);
+        setFichasDelDia([]);
+        setSelectedClientId(clienteId);
+    };
+
+    const cerrarVentana = () => {
+        setDiaSeleccionado(null);
+        setFichasDelDia([]);
     };
 
     const colorClasses = {
         mora: 'bg-[#E24B4A] text-white',
-        pendiente: 'bg-[#EF9F27] text-white', // prompt requests color: #fff here
+        pendiente: 'bg-[#EF9F27] text-white',
         parcial: 'bg-[#378ADD] text-white',
         pagado: 'bg-[#1D9E75] text-white'
-    };
-
-    const handleDayClick = (dateStr: string, hasFichas: boolean) => {
-        if (!hasFichas) return;
-        if (selectedDate === dateStr) {
-            setSelectedDate(null);
-        } else {
-            setSelectedDate(dateStr);
-        }
     };
 
     const renderMonthGrid = (monthIndex: number) => {
         const date = new Date(currentYear, monthIndex, 1);
         const daysInMonth = new Date(currentYear, monthIndex + 1, 0).getDate();
-        const firstDayOfWeek = date.getDay(); // 0 = Sunday
+        const firstDayOfWeek = date.getDay();
 
         const cells = [];
-        // padding
         for (let i = 0; i < firstDayOfWeek; i++) {
             cells.push(<div key={`empty-${i}`} className="w-6 h-6" />);
         }
@@ -87,7 +109,7 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
             const dateKey = `${currentYear}-${String(monthIndex + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const dayFichas = groupByDate.get(dateKey) || [];
             
-            const isToday = new Date().toLocaleDateString('en-CA') === dateKey; // en-CA gives YYYY-MM-DD local
+            const isToday = new Date().toLocaleDateString('en-CA') === dateKey;
             const hasFichas = dayFichas.length > 0;
             const multipleFichas = dayFichas.length > 1;
 
@@ -98,16 +120,17 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
             }
 
             const estadoColor = hasFichas ? colorClasses[estadoMasGrave(dayFichas)] : '';
-            const isSelected = selectedDate === dateKey;
+            // PASO 9 — Marcar día seleccionado
+            const esDiaSeleccionado = diaSeleccionado === dateKey;
 
             cells.push(
                 <div 
                     key={dateKey}
-                    onClick={() => handleDayClick(dateKey, hasFichas)}
+                    onClick={() => handleDiaClick(dateKey)}
                     className={`w-6 h-6 flex flex-col items-center justify-center text-[11px] select-none transition-all relative z-10
                         ${hasFichas ? 'rounded-full cursor-pointer hover:opacity-80 hover:scale-110 font-medium ' + estadoColor : 'text-[#888780]'}
                         ${!hasFichas && isToday ? 'bg-[#1a1a18] text-white rounded-full' : ''}
-                        ${isSelected ? 'ring-2 ring-white ring-offset-[1px] ring-offset-[#1a1a18]' : ''}
+                        ${esDiaSeleccionado ? 'outline-[2.5px] outline-solid outline-[#1a1a18] outline-offset-[1.5px] scale-110' : ''}
                     `}
                 >
                     <span className="leading-none">{d}</span>
@@ -184,7 +207,7 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
 
                     <select
                         value={selectedClientId}
-                        onChange={e => setSelectedClientId(e.target.value)}
+                        onChange={e => handleFiltroCliente(e.target.value)}
                         className="h-[28px] px-2 rounded-[7px] border border-[#d3d1c7] bg-white text-[12px] font-medium text-[#1a1a18] focus:outline-none hover:bg-[#f5f4f0] transition-colors max-w-[150px] truncate"
                     >
                         <option value="all">Todos los clientes</option>
@@ -209,128 +232,173 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
                 ))}
             </div>
 
-            {/* Overlay Window */}
-            {selectedDate && (
+            {/* PASO 3 — OVERLAY Y VENTANA FLOTANTE */}
+            {diaSeleccionado && (
                 <div 
-                    className="absolute inset-0 bg-[#0f0f0c47] backdrop-blur-[1px] rounded-[10px] z-20 flex items-center justify-center"
-                    onClick={() => setSelectedDate(null)}
+                    className="absolute inset-0 bg-[#0f0f0c47] backdrop-blur-[1px] rounded-[10px] z-20 flex items-center justify-center animate-fade-in"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) cerrarVentana();
+                    }}
                 >
-                    <div 
-                        className="bg-white border border-[#e8e6e0] rounded-[14px] w-[95vw] sm:w-max sm:min-w-[340px] max-w-[920px] max-h-[80%] overflow-y-auto flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.14),0_2px_8px_rgba(0,0,0,0.06)] animate-in zoom-in-95 duration-200"
-                        onClick={e => e.stopPropagation()} // prevent closing overlay
-                    >
-                        {(() => {
-                            const dateObj = new Date(selectedDate + 'T12:00:00'); // ensure local timezone isn't nudged
-                            const headerDate = dateObj.toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-                            const dayFichas = groupByDate.get(selectedDate) || [];
-
-                            return (
-                                <>
-                                    <div className="sticky top-0 bg-white/95 backdrop-blur z-10 p-4 border-b border-[#e8e6e0] flex items-center justify-between">
-                                        <div>
-                                            <h3 className="text-[13px] font-medium text-[#1a1a18] capitalize">{headerDate}</h3>
-                                            <p className="text-[11px] text-[#888780]">{dayFichas.length} ficha{dayFichas.length !== 1 ? 's' : ''}</p>
-                                        </div>
-                                        <button onClick={() => setSelectedDate(null)} className="w-[24px] h-[24px] flex items-center justify-center rounded-[5px] text-[#888780] hover:bg-[#f5f4f0] transition-colors">
-                                            <X className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-
-                                    <div className="p-4 flex flex-row flex-wrap gap-4 justify-center sm:justify-start">
-                                        {dayFichas.map(ficha => {
-                                            const saldoBase = ficha.original - ficha.pagado;
-                                            const total = saldoBase * FACTOR;
-                                            const pct = Math.round((ficha.pagado / ficha.original) * 100) || 0;
-                                            const isPagado = saldoBase <= 0;
-
-                                            let colorHex = '#1D9E75';
-                                            if (ficha.estado === 'mora') colorHex = '#E24B4A';
-                                            else if (ficha.estado === 'pendiente') colorHex = '#EF9F27';
-                                            else if (ficha.estado === 'parcial') colorHex = '#378ADD';
-
-                                            let progressColor = '#E24B4A';
-                                            if (pct >= 60) progressColor = '#1D9E75';
-                                            else if (pct > 0) progressColor = '#378ADD';
-
-                                            return (
-                                                <div key={ficha.id} className="relative bg-[#fafaf8] border border-[#e8e6e0] rounded-[10px] p-[14px] flex flex-col gap-2 w-full sm:w-[280px] shrink-0">
-                                                    <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: colorHex }}></div>
-                                                    
-                                                    <div className="flex items-start justify-between pl-1">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <FileText className="w-3.5 h-3.5 text-[#b4b2a9]" />
-                                                            <span className="text-[12px] font-medium text-[#1a1a18]">{ficha.id}</span>
-                                                        </div>
-                                                        <div className="px-1.5 py-[1px] rounded-[20px] text-[9px] font-medium uppercase tracking-wider" 
-                                                             style={{ backgroundColor: `${colorHex}15`, color: colorHex }}>
-                                                            {ficha.estado}
-                                                        </div>
-                                                    </div>
-
-                                                    {(selectedClientId === 'all' || selectedClientId === '') && (
-                                                        <div className="pl-1 text-[11px] font-medium text-[#1a1a18] mt-[-4px]">
-                                                            {ficha.clienteNombre}
-                                                        </div>
-                                                    )}
-
-                                                    <div className="flex justify-between items-end mt-1 pl-1">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[9px] font-medium text-[#888780] uppercase tracking-wide">SALDO BASE</span>
-                                                            <span className={`text-[16px] font-medium leading-none mt-1 ${isPagado ? 'text-[#1D9E75]' : 'text-[#1a1a18]'}`}>
-                                                                {formatMoney(saldoBase)}
-                                                            </span>
-                                                            <span className="text-[10px] text-[#888780] mt-0.5">Orig: {formatMoney(ficha.original)}</span>
-                                                        </div>
-                                                        <div className="flex flex-col items-end text-right">
-                                                            <span className="text-[9px] font-medium text-[#888780] uppercase tracking-wide mt-1">TOTAL (+30%)</span>
-                                                            <span className={`text-[12px] font-medium leading-none mt-0.5 ${isPagado ? 'text-[#1D9E75]' : 'text-[#BA7517]'}`}>
-                                                                {formatMoney(total)}
-                                                            </span>
-                                                            <span className="text-[10px] text-[#888780] mt-0.5">Abonado: {formatMoney(ficha.pagado)}</span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="pl-1 mt-1 pr-1">
-                                                        <div className="w-full h-[3px] bg-[#e8e6e0] rounded-[2px] overflow-hidden mb-1">
-                                                            <div className="h-full rounded-[2px] transition-all" style={{ width: `${pct}%`, backgroundColor: progressColor }}></div>
-                                                        </div>
-                                                        <span className="text-[9px] font-medium" style={{ color: progressColor }}>{pct}% cubierto</span>
-                                                    </div>
-
-                                                    <div className="pl-1 text-[10px] text-[#888780] mb-1">
-                                                        Emisión: <strong className="text-[#1a1a18] font-medium">{ficha.emision}</strong><br/>
-                                                        Vence: <strong className="text-[#1a1a18] font-medium">{ficha.vencimiento}</strong>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <button 
-                                                            onClick={() => onRegistrarPago(ficha.id, ficha.clienteId)}
-                                                            disabled={isPagado}
-                                                            className={`flex-[3] h-7 rounded-[5px] text-[11px] font-medium flex items-center justify-center transition-colors
-                                                                ${isPagado 
-                                                                    ? 'bg-[#f0efe8] text-[#b4b2a9] cursor-not-allowed' 
-                                                                    : 'bg-[#1D9E75] text-white hover:bg-[#168a65] shadow-sm'
-                                                                }`}
-                                                        >
-                                                            + Registrar pago
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => onVerHistorial(ficha.id, ficha.clienteId)}
-                                                            className="flex-[2] h-7 rounded-[5px] text-[11px] font-medium flex items-center justify-center bg-white border border-[#d3d1c7] text-[#444441] hover:bg-[#f5f4f0] transition-colors shadow-sm"
-                                                        >
-                                                            Ver historial
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </>
-                            );
-                        })()}
-                    </div>
+                    <VentanaFlotante 
+                        fecha={diaSeleccionado}
+                        fichas={fichasDelDia}
+                        factorRecargo={factorRecargo}
+                        onCerrar={cerrarVentana}
+                        onRegistrarPago={(fichaId, clienteId) => {
+                            cerrarVentana();
+                            onRegistrarPago(fichaId, clienteId);
+                        }}
+                        onVerHistorial={(fichaId, clienteId) => {
+                            cerrarVentana();
+                            onVerHistorial(fichaId, clienteId);
+                        }}
+                    />
                 </div>
             )}
+        </div>
+    );
+}
+
+// PASO 4 — COMPONENTE VentanaFlotante
+function VentanaFlotante({ fecha, fichas, factorRecargo, onCerrar, onRegistrarPago, onVerHistorial }: {
+    fecha: string;
+    fichas: FichaCalendarioDato[];
+    factorRecargo: number;
+    onCerrar: () => void;
+    onRegistrarPago: (fid: string, cid: string) => void;
+    onVerHistorial: (fid: string, cid: string) => void;
+}) {
+    const fechaObj = new Date(fecha + 'T12:00:00');
+    const fechaFormateada = fechaObj.toLocaleDateString('es-VE', { 
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' 
+    });
+    const fechaDisplay = fechaFormateada.charAt(0).toUpperCase() + fechaFormateada.slice(1);
+    const FACTOR = 1 + (factorRecargo / 100);
+
+    return (
+        <div className="bg-white rounded-[16px] border border-[#e8e6e0] w-[560px] max-w-[90%] max-h-[80%] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,.18),0_2px_8px_rgba(0,0,0,.06)] animate-popIn">
+            {/* HEADER */}
+            <div className="p-[16px_20px_12px] flex items-start justify-between">
+                <div>
+                    <p className="text-[14px] font-medium text-[#1a1a18]">{fechaDisplay}</p>
+                    <p className="text-[11px] text-[#888780] mt-[3px]">
+                        {fichas.length} ficha{fichas.length !== 1 ? 's' : ''}
+                    </p>
+                </div>
+                <button onClick={onCerrar} className="bg-[#f5f4f0] border-none cursor-pointer w-[28px] h-[28px] rounded-full text-[14px] color-[#888780] flex items-center justify-center hover:bg-[#e8e6e0] transition-colors">✕</button>
+            </div>
+
+            <hr className="border-none border-t border-[#f0efe8] mx-[20px]" />
+
+            {/* GRID DE FICHAS */}
+            <div className="p-[14px_16px] grid grid-cols-1 sm:grid-cols-2 gap-[10px]">
+                {fichas.map(f => (
+                    <FichaCard 
+                        key={f.id} 
+                        ficha={f} 
+                        factor={FACTOR} 
+                        onRegistrarPago={onRegistrarPago} 
+                        onVerHistorial={onVerHistorial} 
+                    />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// PASO 5 — COMPONENTE FichaCard
+function FichaCard({ ficha, factor, onRegistrarPago, onVerHistorial }: {
+    ficha: FichaCalendarioDato;
+    factor: number;
+    onRegistrarPago: (fid: string, cid: string) => void;
+    onVerHistorial: (fid: string, cid: string) => void;
+}) {
+    const saldo = ficha.original - ficha.pagado;
+    const total = saldo * factor;
+    const pct = ficha.original > 0 ? Math.round(ficha.pagado / ficha.original * 100) : 0;
+
+    const colorBarra = pct >= 60 ? '#1D9E75' : pct > 0 ? '#378ADD' : '#E24B4A';
+    const colorSaldo = saldo <= 0 ? '#1D9E75' : '#1a1a18';
+    const colorTotal = saldo <= 0 ? '#1D9E75' : '#BA7517';
+
+    const ESTADO_CFG = { 
+        mora:      { label: 'En mora',   bg: '#FCEBEB', color: '#A32D2D', barra: '#E24B4A' }, 
+        pendiente: { label: 'Pendiente', bg: '#FAEEDA', color: '#633806', barra: '#EF9F27' }, 
+        pagado:    { label: 'Al día',    bg: '#E1F5EE', color: '#085041', barra: '#1D9E75' }, 
+        parcial:   { label: 'Parcial',   bg: '#E6F1FB', color: '#185FA5', barra: '#378ADD' }, 
+    };
+    const cfg = ESTADO_CFG[ficha.estado] || ESTADO_CFG.pendiente;
+
+    const fmtFecha = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('es-VE', { 
+        day: '2-digit', month: 'short', year: 'numeric' 
+    });
+    const fmtNum = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    return (
+        <div className="bg-[#fafaf8] rounded-[10px] border border-[#e8e6e0] p-[12px] relative overflow-hidden">
+            {/* Barra lateral de color */}
+            <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: cfg.barra }} />
+
+            {/* ID + Badge */}
+            <div className="flex items-center justify-between mb-[8px]">
+                <span className="text-[11px] font-medium text-[#1a1a18]">📄 {ficha.id}</span>
+                <span className="text-[9px] font-medium px-[8px] py-[2px] rounded-[20px]" style={{ background: cfg.bg, color: cfg.color }}>
+                    {cfg.label}
+                </span>
+            </div>
+
+            {/* Nombre cliente */}
+            {ficha.clienteNombre && (
+                <p className="text-[10px] text-[#888780] mb-[8px] font-medium truncate">{ficha.clienteNombre}</p>
+            )}
+
+            {/* Montos */}
+            <div className="flex justify-between items-end mb-[8px]">
+                <div>
+                    <p className="text-[9px] text-[#888780] uppercase tracking-[.04em] mb-[2px] font-bold">SALDO BASE</p>
+                    <p className="text-[20px] font-medium leading-none" style={{ color: colorSaldo }}>${fmtNum(saldo)}</p>
+                    <p className="text-[10px] text-[#888780] mt-[1px]">Orig: ${fmtNum(ficha.original)}</p>
+                </div>
+                <div className="text-right">
+                    <p className="text-[9px] text-[#888780] uppercase tracking-[.04em] font-bold">TOTAL (+{Math.round((factor - 1) * 100)}%)</p>
+                    <p className="text-[13px] font-medium mt-[2px]" style={{ color: colorTotal }}>${fmtNum(saldo <= 0 ? 0 : total)}</p>
+                </div>
+            </div>
+
+            {/* Barra de progreso */}
+            <div className="mb-[8px]">
+                <div className="flex justify-between text-[9px] mb-[3px] font-medium">
+                    <span style={{ color: colorBarra }}>{pct}% cubierto</span>
+                    <span className="text-[#888780]">Abonado: ${fmtNum(ficha.pagado)}</span>
+                </div>
+                <div className="h-[4px] bg-[#e8e6e0] rounded-[2px] overflow-hidden">
+                    <div className="h-full transition-all duration-500" style={{ width: `${pct}%`, background: colorBarra }} />
+                </div>
+            </div>
+
+            {/* Meta */}
+            <div className="flex gap-[8px] text-[9px] text-[#888780] mb-[8px] flex-wrap font-medium">
+                <span>Emisión: <strong className="text-[#1a1a18]">{fmtFecha(ficha.emision)}</strong></span>
+                <span>Vence: <strong style={{ color: saldo > 0 && new Date() > new Date(ficha.vencimiento) ? '#E24B4A' : '#1a1a18' }}>{fmtFecha(ficha.vencimiento)}</strong></span>
+            </div>
+
+            {/* Botones */}
+            <div className="flex gap-[6px]">
+                <button 
+                    disabled={saldo <= 0} 
+                    onClick={() => onRegistrarPago(ficha.id, ficha.clienteId)} 
+                    className={`flex-1 p-[7px_0] rounded-[7px] border-none text-[10px] font-bold transition-colors ${saldo <= 0 ? 'bg-[#f0efe8] text-[#b4b2a9] cursor-default' : 'bg-[#1D9E75] text-white cursor-pointer hover:bg-[#168a65]'}`}
+                >
+                    + Registrar pago
+                </button>
+                <button 
+                    onClick={() => onVerHistorial(ficha.id, ficha.clienteId)} 
+                    className="flex-1 p-[7px_0] rounded-[7px] border border-[#d3d1c7] text-[10px] font-bold bg-white text-[#444441] cursor-pointer hover:bg-[#f5f4f0] transition-colors"
+                >
+                    Ver historial
+                </button>
+            </div>
         </div>
     );
 }

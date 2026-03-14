@@ -98,6 +98,18 @@ export default {
           from: { opacity: "0", transform: "translateY(16px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "popIn": {
+          "0%": { opacity: "0", transform: "scale(0.88)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
+        "shimmer": "shimmer 2s linear infinite",
+        "fade-in-up": "fade-in-up 0.4s ease-out forwards",
+        "popIn": "popIn 0.18s cubic-bezier(0.34, 1.36, 0.64, 1)",
+      },
         "fade-in": {
           from: { opacity: "0" },
           to: { opacity: "1" },

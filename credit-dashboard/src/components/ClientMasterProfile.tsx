@@ -1,17 +1,13 @@
 import {
-    X, FileText, AlertCircle, AlertTriangle, Eye, CheckCircle, CheckCircle2,
-    Loader2, DollarSign, History, Download, ArrowDownLeft, CreditCard,
-    RefreshCw, ChevronLeft, ChevronRight, Calendar, ChevronDown, ChevronUp, Lock, Unlock, EyeOff, Edit2, Save, FileDown, Trash2
+    X, FileText, AlertCircle, Eye, CheckCircle2,
+    Loader2, RefreshCw, ChevronDown, ChevronUp, Lock, Unlock, EyeOff, Edit2, Save, Trash2
 } from 'lucide-react';
 import { useUpdateInvoiceProducts, useDeleteInvoice } from '../logic/useClients';
-import { generateTicket } from '../utils/generateTicket';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { Client, Invoice } from '../logic/ClientContext';
 import { useClients } from '../logic/ClientContext';
-import { useClientTransactions, useUpdateInvoiceDueDate } from '../logic/useClients';
 import { useBCV } from '../hooks/BCVContext';
-import type { Transaction } from '../logic/useClients';
 
 interface ClientMasterProfileProps {
     client: Client | null;
@@ -150,11 +146,6 @@ function InvoiceDetailModal({
         }
     }, [editedProducts.length, currentPage, totalPages]);
 
-    const paginatedProducts = editedProducts.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-    );
-
     const updateProducts = useUpdateInvoiceProducts();
     const deleteInvoice = useDeleteInvoice();
 
@@ -175,7 +166,6 @@ function InvoiceDetailModal({
 
     // Lógica BCV (modo visual o total)
     const TASA_BCV = bcvRate;
-    const totalBCV = Math.round(granTotal * TASA_BCV * 100) / 100;
 
 
     const updateField = (i: number, field: 'quantity' | 'unit_price', val: string) => {
@@ -961,10 +951,6 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                 return next;
             });
             setMigratedIds(prev => new Set([...prev, ...newlyPaid]));
-
-            const remaining = (client.invoices || []).filter(
-                (inv: Invoice) => (balanceOverrides[inv.id] ?? inv.balance) > 0 && !newlyPaid.includes(inv.id)
-            );
         }, 460);
 
         return () => clearTimeout(timer);

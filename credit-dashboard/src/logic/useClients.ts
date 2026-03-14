@@ -14,6 +14,7 @@ export interface Invoice {
     dueDate: string;
     totalAmount: number;
     balance: number;
+    original?: number; // Added to support ClientList calculation
     iva?: number;
     status: 'pagado' | 'pendiente' | 'en mora';
     products: Product[];

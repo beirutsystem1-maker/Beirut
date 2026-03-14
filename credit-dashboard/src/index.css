@@ -105,6 +105,10 @@
     @apply border-border;
   }
 
+  html {
+    zoom: 85%;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;

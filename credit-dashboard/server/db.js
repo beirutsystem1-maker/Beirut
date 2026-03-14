@@ -88,7 +88,8 @@ async function init() {
       quantity REAL DEFAULT 1,
       unit_price REAL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
-      synced INTEGER DEFAULT 0
+      synced INTEGER DEFAULT 0,
+      deleted INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS payments (
@@ -119,6 +120,7 @@ async function init() {
   try { db.run('ALTER TABLE invoices ADD COLUMN iva REAL DEFAULT 0'); } catch (e) { /* Ya existe, ignorar */ }
   try { db.run('ALTER TABLE clients ADD COLUMN show_base_debt INTEGER DEFAULT 1'); } catch (e) { /* Ya existe, ignorar */ }
   try { db.run('ALTER TABLE clients ADD COLUMN show_surcharge_debt INTEGER DEFAULT 1'); } catch (e) { /* Ya existe, ignorar */ }
+  try { db.run('ALTER TABLE invoice_products ADD COLUMN deleted INTEGER DEFAULT 0'); } catch (e) { /* Ya existe, ignorar */ }
   
   // Limpiar posibles flags residuales para que la UI se refresque (en modo dev útil)
   db.run('UPDATE invoices SET deleted = 1 WHERE deleted IS NULL');
@@ -207,7 +209,7 @@ function getAllClients() {
     const invoices = query('SELECT * FROM invoices WHERE client_id = ? AND deleted = 0 ORDER BY issue_date DESC', [c.id]);
     const invoicesWithProducts = invoices.map(inv => ({
       ...inv,
-      products: query('SELECT * FROM invoice_products WHERE invoice_id = ?', [inv.id])
+      products: query('SELECT * FROM invoice_products WHERE invoice_id = ? AND (deleted = 0 OR deleted IS NULL)', [inv.id])
     }));
     return { ...c, is_active: !!c.is_active, invoices: invoicesWithProducts };
   });
@@ -218,7 +220,7 @@ function getClientById(id) {
   if (!c) return null;
   const invoices = query('SELECT * FROM invoices WHERE client_id = ? AND deleted = 0 ORDER BY issue_date DESC', [id]);
   const invoicesWithProducts = invoices.map(inv => {
-    const products = query('SELECT * FROM invoice_products WHERE invoice_id = ?', [inv.id]);
+    const products = query('SELECT * FROM invoice_products WHERE invoice_id = ? AND (deleted = 0 OR deleted IS NULL)', [inv.id]);
     return { ...inv, products };
   });
   return { ...c, is_active: !!c.is_active, invoices: invoicesWithProducts };
@@ -269,7 +271,7 @@ function getInvoicesForClient(clientId) {
   );
   return invoices.map(inv => ({
     ...inv,
-    products: query('SELECT * FROM invoice_products WHERE invoice_id = ?', [inv.id])
+    products: query('SELECT * FROM invoice_products WHERE invoice_id = ? AND (deleted = 0 OR deleted IS NULL)', [inv.id])
   }));
 }
 
@@ -286,7 +288,7 @@ function getInvoicesByDateRange(desde, hasta) {
   );
   return rows.map(row => ({
     ...row,
-    products: query('SELECT * FROM invoice_products WHERE invoice_id = ?', [row.id])
+    products: query('SELECT * FROM invoice_products WHERE invoice_id = ? AND (deleted = 0 OR deleted IS NULL)', [row.id])
   }));
 }
 

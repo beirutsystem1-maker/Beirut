@@ -1,13 +1,9 @@
-import React, { useState, useMemo, Suspense } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     MessageCircle, FileText, ChevronRight,
     UserPlus, User, Phone, Mail,
-    CheckCircle2, AlertCircle, MapPin,
-    BarChart3, Bell, ArrowRight
+    CheckCircle2, AlertCircle, MapPin
 } from 'lucide-react';
-// Dynamic import for Recharts to split bundle
-const RechartsChart = React.lazy(() => import('../components/RechartsWrapper'));
-
 import { useClients, calculateClientDebt, calculateClientStatus } from '../logic/ClientContext';
 import type { Client, Invoice } from '../logic/ClientContext';
 import { ClientMasterProfile } from '../components/ClientMasterProfile';
@@ -24,51 +20,8 @@ function formatDate(d: string) {
     return new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function generateWeeklyChartData(clients: Client[]) {
-    const allPending: { invoice: Invoice, clientName: string }[] = [];
-    clients.forEach(c => {
-        (c.invoices || []).forEach((inv: Invoice) => {
-            if (inv.balance > 0) allPending.push({ invoice: inv, clientName: c.name });
-        });
-    });
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const msPerDay = 24 * 60 * 60 * 1000;
-
-    const weeks = [
-        { label: 'Atrasado', start: new Date(0), end: today, fill: '#f43f5e' }, // Rose 500
-        { label: 'Esta sem.', start: today, end: new Date(today.getTime() + 7 * msPerDay), fill: '#f59e0b' }, // Amber 500
-        { label: 'Próx. sem.', start: new Date(today.getTime() + 7 * msPerDay), end: new Date(today.getTime() + 14 * msPerDay), fill: '#10b981' }, // Emerald 500
-        { label: 'En 3 sem.', start: new Date(today.getTime() + 14 * msPerDay), end: new Date(today.getTime() + 21 * msPerDay), fill: '#10b981' },
-        { label: '+1 Mes', start: new Date(today.getTime() + 21 * msPerDay), end: new Date(9999, 11, 31), fill: '#3b82f6' } // Blue 500
-    ];
-
-    const data = weeks.map(w => ({ name: w.label, amount: 0, fill: w.fill }));
-
-    allPending.forEach(({ invoice }) => {
-        const dueDate = new Date(invoice.dueDate);
-        const t = dueDate.getTime();
-        const wkIndex = weeks.findIndex(w => t >= w.start.getTime() && t < w.end.getTime());
-        if (wkIndex !== -1) data[wkIndex].amount += invoice.balance;
-    });
-
-    return data;
-}
-
-
-
-function getUpcomingPayments(clients: Client[]) {
-    const allPending: { invoice: Invoice, client: Client }[] = [];
-    clients.forEach(client => {
-        (client.invoices || []).forEach((invoice: Invoice) => {
-            if (invoice.balance > 0) allPending.push({ invoice, client });
-        });
-    });
-    allPending.sort((a, b) => new Date(a.invoice.dueDate).getTime() - new Date(b.invoice.dueDate).getTime());
-    return allPending.slice(0, 6);
-}
-
+import { CalendarioCreditos } from '../components/CalendarioCreditos';
+import type { FichaCalendarioDato } from '../components/CalendarioCreditos';
 
 function Avatar({ name }: { name: string }) {
     const initials = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -433,6 +386,61 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                (c.phone && c.phone.includes(searchTerm));
     });
 
+    // Construcción de la data plana de Fichas para el Calendario
+    const mappedFichas = useMemo<FichaCalendarioDato[]>(() => {
+        const formatLocalISO = (d: string | Date) => {
+            const temp = new Date(d);
+            temp.setMinutes(temp.getMinutes() - temp.getTimezoneOffset());
+            return temp.toISOString().split('T')[0];
+        };
+
+        return clients.flatMap(client => {
+            return (client.invoices || []).map((inv: Invoice) => {
+                const totalOriginal = inv.original || inv.balance;
+                const balance = inv.balance;
+                const pagado = totalOriginal - balance;
+
+                let estado: 'mora' | 'pendiente' | 'parcial' | 'pagado' = 'pagado';
+                const isPagin = balance <= 0;
+                const vDate = new Date(inv.dueDate);
+                vDate.setHours(23, 59, 59, 999);
+                const isMora = !isPagin && vDate < new Date();
+                const isParcial = !isPagin && !isMora && pagado > 0;
+                
+                if (isMora) estado = 'mora';
+                else if (isParcial) estado = 'parcial';
+                else if (isPagin) estado = 'pagado';
+                else if (inv.status === 'pagado' || inv.status === 'pendiente') estado = 'pendiente';
+
+                return {
+                    id: inv.id,
+                    clienteId: client.id,
+                    clienteNombre: client.name,
+                    emision: formatLocalISO(inv.issueDate),
+                    vencimiento: formatLocalISO(inv.dueDate),
+                    estado,
+                    original: totalOriginal,
+                    pagado
+                };
+            });
+        });
+    }, [clients]);
+
+    const surchargePercent = (() => {
+        const s = localStorage.getItem('beirutSurchargePercent');
+        return s !== null && s !== '' ? parseFloat(s) : 30;
+    })();
+
+    const handleRegistrarPago = (_fichaId: string, clienteId: string) => {
+        // En una refactorización ideal pasaríamos estos IDs hasta el Modal
+        // Por ahora redirigimos abriendo la ficha mestra que permite registrar el pago.
+        setSelectedClientId(clienteId);
+    };
+
+    const handleVerHistorial = (_fichaId: string, _clienteId: string) => {
+        if (onViewChange) onViewChange('historial');
+    };
+
 
     const openWhatsApp = (client: Client) => {
         if (!client.phone || client.phone.trim() === '' || client.phone === '—') {
@@ -571,64 +579,14 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
 
             {/* ── Dashboard Metrics & Upcoming ── */}
             {clients.length > 0 && filterStatus === 'all' && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 my-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-                    {/* Weekly Chart */}
-                    <div className="col-span-1 lg:col-span-2 bg-card border border-border rounded-2xl p-5 shadow-sm">
-                        <div className="flex items-center justify-between mb-5">
-                            <h3 className="font-bold text-base flex items-center gap-2.5"><BarChart3 className="w-4 h-4 text-[#635BFF]" /> Flujo de Caja Proyectado</h3>
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">Próximos Saldos</span>
-                        </div>
-                        <div className="h-64 w-full relative">
-                            <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">Cargando gráfico...</div>}>
-                                <RechartsChart data={generateWeeklyChartData(clients)} />
-                            </Suspense>
-                        </div>
-                    </div>
-
-                    {/* Upcoming Payments */}
-                    <div className="col-span-1 bg-card border border-border rounded-2xl p-5 shadow-sm flex flex-col h-[328px]">
-                        <h3 className="font-bold text-base mb-4 flex items-center gap-2.5"><Bell className="w-4 h-4 text-emerald-500" /> Próximos Cobros</h3>
-                        <div className="flex-1 overflow-y-auto space-y-2.5 scrollbar-thin pr-1">
-                            {(() => {
-                                const upcomingP = getUpcomingPayments(clients);
-                                if (upcomingP.length === 0) {
-                                    return <p className="text-sm text-muted-foreground text-center mt-10">No hay cobros pendientes.</p>;
-                                }
-                                return upcomingP.map(({ invoice, client }) => {
-                                    const dueDate = new Date(invoice.dueDate);
-                                    const now = new Date();
-                                    const isOverdue = dueDate < now;
-                                    const hoursDiff = (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-                                    const isUrgent = !isOverdue && hoursDiff <= 48 && hoursDiff > 0;
-
-                                    return (
-                                        <div key={`${client.id}-${invoice.id}`} className={`p-3 rounded-xl border ${isOverdue ? 'border-rose-200/60 bg-rose-50/20 dark:bg-rose-950/10' : isUrgent ? 'border-amber-200/60 bg-amber-50/20 dark:bg-amber-950/10' : 'border-border/50 bg-muted/10'} flex flex-col gap-2 relative overflow-hidden group cursor-pointer hover:border-border transition-colors`} onClick={() => setSelectedClientId(client.id)}>
-                                            {isOverdue && <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500 animate-pulse" />}
-                                            {isUrgent && <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />}
-
-                                            <div className="flex items-start justify-between pl-1">
-                                                <div className="min-w-0 pr-2">
-                                                    <p className="font-bold text-[13px] text-foreground truncate">{client.name}</p>
-                                                    <p className="text-[10px] text-muted-foreground mt-0.5">{invoice.id} · Vence: <strong className={isOverdue ? "text-rose-500" : isUrgent ? "text-amber-500" : ""}>{formatDate(invoice.dueDate)}</strong></p>
-                                                </div>
-                                                <div className="text-right shrink-0 relative flex flex-col items-end justify-between self-stretch">
-                                                    <p className="font-mono font-black text-sm text-foreground tracking-tight">{formatCurrency(invoice.balance)}</p>
-
-                                                    {isOverdue ? (
-                                                        <span className="bg-rose-500 text-white text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 font-bold uppercase animate-pulse mt-auto"><AlertCircle className="w-2.5 h-2.5" /> En Mora</span>
-                                                    ) : isUrgent ? (
-                                                        <span className="bg-amber-500 text-white text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 font-bold uppercase mt-auto">Urgente</span>
-                                                    ) : (
-                                                        <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all mt-auto" />
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                });
-                            })()}
-                        </div>
-                    </div>
+                <div className="grid grid-cols-1 w-full my-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+                    <CalendarioCreditos 
+                        fichas={mappedFichas}
+                        clientes={clients.map(c => ({ id: c.id, name: c.name }))}
+                        factorRecargo={surchargePercent}
+                        onRegistrarPago={handleRegistrarPago}
+                        onVerHistorial={handleVerHistorial}
+                    />
                 </div>
             )}
 

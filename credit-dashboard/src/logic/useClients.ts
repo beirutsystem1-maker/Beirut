@@ -129,6 +129,7 @@ export function useClientInvoices(clientId: string | null) {
                 balance: Number(inv.balance),
                 status: inv.status as 'pagado' | 'pendiente' | 'en mora',
                 products: (inv.products || []).map((p: any) => ({
+                    id: p.id,
                     description: p.description,
                     quantity: p.quantity,
                     unitPrice: Number(p.unit_price) // match API column name unit_price -> unitPrice
@@ -167,6 +168,7 @@ export function useClientFullData(clientId: string | null) {
                     balance: Number(inv.balance),
                     status: inv.status as 'pagado' | 'pendiente' | 'en mora',
                     products: (inv.products || []).map((p: any) => ({
+                        id: p.id,
                         description: p.description,
                         quantity: p.quantity,
                         unitPrice: Number(p.unit_price)
@@ -388,7 +390,7 @@ export function useUpdateInvoiceProducts() {
         }: {
             invoiceId: string;
             clientId?: string;
-            products: { description: string; quantity: number; unit_price: number }[];
+            products: { id?: string; description: string; quantity: number; unit_price: number }[];
             apply_iva?: boolean;
         }) => {
             const res = await fetch(`${SERVER_URL}/invoices/${invoiceId}/products`, {
@@ -399,8 +401,12 @@ export function useUpdateInvoiceProducts() {
             if (!res.ok) throw new Error('Error al actualizar productos de la factura');
             return res.json();
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
+            if (variables.clientId) {
+                queryClient.invalidateQueries({ queryKey: ['invoices', variables.clientId] });
+                queryClient.invalidateQueries({ queryKey: ['client', 'full', variables.clientId] });
+            }
         },
     });
 }

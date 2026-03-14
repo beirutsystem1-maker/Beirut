@@ -117,8 +117,8 @@ router.put('/:id/products', (req, res) => {
         const { products } = req.body;
         if (!Array.isArray(products)) return res.status(400).json({ error: 'products debe ser un array' });
 
-        // Delete existing products
-        run('DELETE FROM invoice_products WHERE invoice_id = ?', [invoiceId]);
+        // Soft-delete existing products
+        run('UPDATE invoice_products SET deleted = 1, synced = 0 WHERE invoice_id = ?', [invoiceId]);
 
         // Insert updated products
         let newTotal = 0;
@@ -126,10 +126,17 @@ router.put('/:id/products', (req, res) => {
             const qty = parseFloat(p.quantity) || 0;
             const price = parseFloat(p.unit_price !== undefined ? p.unit_price : p.unitPrice) || 0;
             newTotal += qty * price;
-            run(
-                `INSERT INTO invoice_products (id, invoice_id, description, quantity, unit_price) VALUES (?, ?, ?, ?, ?)`,
-                [generateId(), invoiceId, p.description || '', qty, price]
-            );
+            if (p.id) {
+                run(
+                    'UPDATE invoice_products SET description = ?, quantity = ?, unit_price = ?, synced = 0, deleted = 0 WHERE id = ? AND invoice_id = ?',
+                    [p.description || '', qty, price, p.id, invoiceId]
+                );
+            } else {
+                run(
+                    `INSERT INTO invoice_products (id, invoice_id, description, quantity, unit_price) VALUES (?, ?, ?, ?, ?)`,
+                    [generateId(), invoiceId, p.description || '', qty, price]
+                );
+            }
         }
 
         // Recalculate total_amount; keep balance proportional if it was partial
@@ -183,8 +190,8 @@ router.delete('/:id', (req, res) => {
 
         // Soft-delete the invoice
         run('UPDATE invoices SET deleted = 1, updated_at = ?, synced = 0 WHERE id = ?', [now, invoiceId]);
-        // Hard-delete products
-        run('DELETE FROM invoice_products WHERE invoice_id = ?', [invoiceId]);
+        // Soft-delete products
+        run('UPDATE invoice_products SET deleted = 1, synced = 0 WHERE invoice_id = ?', [invoiceId]);
 
         // Persist to disk
         persist();

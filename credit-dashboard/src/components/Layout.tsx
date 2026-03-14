@@ -3,7 +3,7 @@ import {
     Users, Moon, Sun,
     ChevronLeft, ChevronRight, Bell, Search,
     CreditCard, FileSpreadsheet, Settings,
-    Lock, Unlock
+    Lock, Unlock, CalendarDays
 } from 'lucide-react';
 import { useTheme } from '../logic/ThemeProvider';
 import type { ViewState } from '../App';
@@ -15,6 +15,7 @@ import { useBCV } from '../hooks/BCVContext';
 const NAV_ITEMS = [
     { id: 'clients' as ViewState, label: 'Directorio', icon: Users },
     { id: 'excel' as ViewState, label: 'Facturación Excel', icon: FileSpreadsheet },
+    { id: 'historial' as ViewState, label: 'Historial × Mes', icon: CalendarDays },
     { id: 'settings' as ViewState, label: 'Configuración', icon: Settings },
 ];
 
@@ -22,6 +23,7 @@ const PAGE_TITLES: Record<ViewState, string> = {
     clients: 'Directorio de Clientes',
     excel: 'Importación de Facturación',
     settings: 'Configuración y Control Maestro',
+    historial: 'Historial × Mes',
 };
 
 export function Layout({
@@ -40,6 +42,8 @@ export function Layout({
     const { theme, setTheme } = useTheme();
     const { settings } = useSettings();
     const { rate, parallelRate, setManualRate, setManualBcvRate, isLoading: isLoadingRate } = useBCV();
+    
+    // El usuario pide que inicie abierto ("cubra la pantalla lateral") pero que conserve el modo "colapsable"
     const [collapsed, setCollapsed] = useState(false);
     
     // Tasa Paralela Local State

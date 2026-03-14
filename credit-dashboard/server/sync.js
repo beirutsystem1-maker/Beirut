@@ -90,14 +90,19 @@ async function pushInvoices() {
                 // Push its products too
                 const products = getUnsyncedInvoiceProducts(inv.id);
                 for (const p of products) {
-                    const { error: pe } = await supabase.from('invoice_products').upsert({
-                        id: p.id,
-                        invoice_id: p.invoice_id,
-                        description: p.description,
-                        quantity: p.quantity,
-                        unit_price: p.unit_price
-                    }, { onConflict: 'id' });
-                    if (!pe) markSynced('invoice_products', p.id);
+                    if (p.deleted) {
+                        const { error: pe } = await supabase.from('invoice_products').delete().eq('id', p.id);
+                        if (!pe || pe.code === 'PGRST116') markSynced('invoice_products', p.id);
+                    } else {
+                        const { error: pe } = await supabase.from('invoice_products').upsert({
+                            id: p.id,
+                            invoice_id: p.invoice_id,
+                            description: p.description,
+                            quantity: p.quantity,
+                            unit_price: p.unit_price
+                        }, { onConflict: 'id' });
+                        if (!pe) markSynced('invoice_products', p.id);
+                    }
                 }
             }
             markSynced('invoices', inv.id);
@@ -164,11 +169,15 @@ async function pullInvoices() {
     for (const row of data) {
         upsertInvoice(row, true);
         if (row.invoice_products) {
-            const { run } = require('./db');
+            const { run, get } = require('./db');
             for (const p of row.invoice_products) {
+                // Avoid resurrecting local soft-deletions if they haven't been pushed yet
+                const local = get('SELECT synced FROM invoice_products WHERE id = ?', [p.id]);
+                if (local && local.synced === 0) continue;
+
                 run(`
-                  INSERT OR REPLACE INTO invoice_products (id, invoice_id, description, quantity, unit_price, synced)
-                  VALUES (?, ?, ?, ?, ?, 1)
+                  INSERT OR REPLACE INTO invoice_products (id, invoice_id, description, quantity, unit_price, synced, deleted)
+                  VALUES (?, ?, ?, ?, ?, 1, 0)
                 `, [p.id || generateId(), p.invoice_id, p.description, p.quantity, p.unit_price]);
             }
         }

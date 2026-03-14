@@ -99,7 +99,6 @@ function InvoiceDetailModal({
     showBaseDebt,
     showSurchargeDebt,
     surchargePercent,
-    bcvRate,
     clientId,
     onInvoiceUpdated
 }: {
@@ -108,7 +107,6 @@ function InvoiceDetailModal({
     showBaseDebt: boolean;
     showSurchargeDebt: boolean;
     surchargePercent: number;
-    bcvRate: number;
     clientId: string;
     onInvoiceUpdated?: (invoiceId: string, delta: number, newTotal: number) => void;
 }) {
@@ -133,11 +131,6 @@ function InvoiceDetailModal({
     const itemsPerPage = 5;
     const totalPages = Math.ceil(editedProducts.length / itemsPerPage);
 
-    const paginatedProducts = editedProducts.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-    );
-
     useEffect(() => {
         if (currentPage > totalPages && totalPages > 0) {
             setCurrentPage(totalPages);
@@ -161,10 +154,6 @@ function InvoiceDetailModal({
     
     const iva = hasOriginalIva ? Math.round(subtotal * 0.16 * 100) / 100 : 0;
     const granTotal = Math.round((subtotal + iva) * 100) / 100;
-
-    // Lógica BCV (modo visual o total)
-    const TASA_BCV = bcvRate;
-    const totalBCV = Math.round(granTotal * TASA_BCV * 100) / 100;
 
 
     const updateField = (i: number, field: 'quantity' | 'unit_price', val: string) => {
@@ -569,7 +558,6 @@ function GlobalPaymentModal({ client, totalDebt, onClose, onPaymentsConfirmed, r
         const s = localStorage.getItem('beirutSurchargePercent');
         return s !== null && s !== '' ? parseFloat(s) / 100 : 0.30;
     })();
-    const FACTOR = 1 + recargoBCV;
 
     // ── Estado UI ──────────────────────────────────────────────────────────
     const [method, setMethod] = useState<'usd' | 'ves'>('usd');
@@ -950,10 +938,6 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                 return next;
             });
             setMigratedIds(prev => new Set([...prev, ...newlyPaid]));
-
-            const remaining = (client.invoices || []).filter(
-                (inv: Invoice) => (balanceOverrides[inv.id] ?? inv.balance) > 0 && !newlyPaid.includes(inv.id)
-            );
         }, 460);
 
         return () => clearTimeout(timer);
@@ -1314,7 +1298,6 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                             showBaseDebt={showBaseDebt}
                             showSurchargeDebt={showSurchargeDebt}
                             surchargePercent={typeof surchargePercent === 'number' ? surchargePercent : parseFloat(surchargePercent as string) || 0}
-                            bcvRate={bcvRate}
                             clientId={client.id}
                             onInvoiceUpdated={handleInvoiceUpdated}
                         />

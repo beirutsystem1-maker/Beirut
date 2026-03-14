@@ -418,6 +418,10 @@ function markSynced(table, id) {
   run(`UPDATE ${table} SET synced = 1 WHERE id = ?`, [id]);
   persist();
 }
+function markAllProductsSynced(invoiceId) {
+  run('UPDATE invoice_products SET synced = 1 WHERE invoice_id = ?', [invoiceId]);
+  persist();
+}
 function getPendingCount() {
   const c = get('SELECT COUNT(*) as n FROM clients WHERE synced = 0')?.n || 0;
   const i = get('SELECT COUNT(*) as n FROM invoices WHERE synced = 0')?.n || 0;
@@ -439,5 +443,5 @@ module.exports = {
   getInvoicesForClient, getInvoicesByDateRange, insertInvoice, upsertInvoice, updateInvoiceBalance, getInvoiceById,
   insertPayment, upsertPayment, getPaymentsByInvoice,
   getUnsyncedClients, getUnsyncedInvoices, getUnsyncedPayments,
-  getUnsyncedInvoiceProducts, markSynced, getPendingCount
+  getUnsyncedInvoiceProducts, markSynced, markAllProductsSynced, getPendingCount
 };

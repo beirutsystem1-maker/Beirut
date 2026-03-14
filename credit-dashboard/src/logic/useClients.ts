@@ -1,6 +1,60 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { createClient } from '@supabase/supabase-js';
+
+// --- Supabase Config ---
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+// Determine if we should use Supabase directly (Production/Vercel) or Local Server
+const IS_PROD = import.meta.env.PROD || window.location.hostname !== 'localhost';
+const USE_SUPABASE_DIRECT = IS_PROD && !!supabase;
 
 export const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+// --- Helper for Direct Supabase Queries ---
+async function fetchFromSupabase() {
+    if (!supabase) return [];
+    
+    // Fetch clients with invoices and products in a single call
+    const { data, error } = await supabase
+        .from('clients')
+        .select(`
+            *,
+            invoices (
+                *,
+                invoice_products (*)
+            )
+        `)
+        .is('deleted', false)
+        .order('name');
+
+    if (error) throw error;
+
+    return (data || []).map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        rif: row.rif || '',
+        phone: row.phone || '',
+        email: row.email || '',
+        address: row.notes || '',
+        showBaseDebt: row.show_base_debt === undefined ? true : Boolean(row.show_base_debt),
+        showSurchargeDebt: row.show_surcharge_debt === undefined ? true : Boolean(row.show_surcharge_debt),
+        invoices: (row.invoices || []).map((inv: any) => ({
+            id: inv.valery_note_id || inv.id,
+            issueDate: inv.issue_date || '',
+            dueDate: inv.due_date || '',
+            totalAmount: Number(inv.total_amount) || 0,
+            balance: Number(inv.balance) || 0,
+            status: inv.status,
+            products: (inv.invoice_products || []).map((p: any) => ({
+                description: p.description,
+                quantity: Number(p.quantity),
+                unitPrice: Number(p.unit_price)
+            }))
+        }))
+    }));
+}
 
 export interface Product {
     description: string;
@@ -47,33 +101,41 @@ export function useClients(page = 0, pageSize = DEFAULT_PAGE_SIZE) {
     return useQuery({
         queryKey: ['clients', page, pageSize],
         queryFn: async (): Promise<PaginatedResponse<Client>> => {
-            const res = await fetch(`${SERVER_URL}/clients`);
-            if (!res.ok) throw new Error('Error fetching clients');
-            const { data } = await res.json();
+            let clients: Client[] = [];
+            
+            if (USE_SUPABASE_DIRECT) {
+                console.log('[SYNC] Mode: Online (Supabase Direct)');
+                clients = await fetchFromSupabase();
+            } else {
+                console.log('[SYNC] Mode: Local (Server Bridge)');
+                const res = await fetch(`${SERVER_URL}/clients`);
+                if (!res.ok) throw new Error('Error fetching clients');
+                const { data } = await res.json();
 
-            const clients: Client[] = (data || []).map((row: any) => ({
-                id: row.id,
-                name: row.name,
-                rif: row.rif || '',
-                phone: row.phone || '',
-                email: row.email || '',
-                address: row.notes || '',
-                showBaseDebt: row.show_base_debt === undefined ? true : Boolean(row.show_base_debt),
-                showSurchargeDebt: row.show_surcharge_debt === undefined ? true : Boolean(row.show_surcharge_debt),
-                invoices: (row.invoices || []).map((inv: any) => ({
-                    id: inv.valery_note_id || inv.id,
-                    issueDate: inv.issue_date || '',
-                    dueDate: inv.due_date || '',
-                    totalAmount: Number(inv.total_amount) || 0,
-                    balance: Number(inv.balance) || 0,
-                    status: inv.status,
-                    products: (inv.products || []).map((p: any) => ({
-                        description: p.description,
-                        quantity: Number(p.quantity),
-                        unitPrice: Number(p.unit_price)
+                clients = (data || []).map((row: any) => ({
+                    id: row.id,
+                    name: row.name,
+                    rif: row.rif || '',
+                    phone: row.phone || '',
+                    email: row.email || '',
+                    address: row.notes || '',
+                    showBaseDebt: row.show_base_debt === undefined ? true : Boolean(row.show_base_debt),
+                    showSurchargeDebt: row.show_surcharge_debt === undefined ? true : Boolean(row.show_surcharge_debt),
+                    invoices: (row.invoices || []).map((inv: any) => ({
+                        id: inv.valery_note_id || inv.id,
+                        issueDate: inv.issue_date || '',
+                        dueDate: inv.due_date || '',
+                        totalAmount: Number(inv.total_amount) || 0,
+                        balance: Number(inv.balance) || 0,
+                        status: inv.status,
+                        products: (inv.products || []).map((p: any) => ({
+                            description: p.description,
+                            quantity: Number(p.quantity),
+                            unitPrice: Number(p.unit_price)
+                        }))
                     }))
-                }))
-            }));
+                }));
+            }
 
             const from = page * pageSize;
             const to = from + pageSize;
@@ -187,19 +249,35 @@ export function useAddClient() {
 
     return useMutation({
         mutationFn: async (newClient: Omit<Client, 'id' | 'invoices'>) => {
-            const res = await fetch(`${SERVER_URL}/clients`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: newClient.name,
-                    rif: newClient.rif,
-                    phone: newClient.phone,
-                    email: newClient.email,
-                    notes: newClient.address, // Mapping address to notes logic
-                })
-            });
-            if (!res.ok) throw new Error('Error saving client');
-            return await res.json();
+            if (USE_SUPABASE_DIRECT && supabase) {
+                const { data, error } = await supabase
+                    .from('clients')
+                    .insert({
+                        name: newClient.name,
+                        rif: newClient.rif,
+                        phone: newClient.phone,
+                        email: newClient.email,
+                        notes: newClient.address,
+                    })
+                    .select()
+                    .single();
+                if (error) throw error;
+                return data;
+            } else {
+                const res = await fetch(`${SERVER_URL}/clients`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: newClient.name,
+                        rif: newClient.rif,
+                        phone: newClient.phone,
+                        email: newClient.email,
+                        notes: newClient.address,
+                    })
+                });
+                if (!res.ok) throw new Error('Error saving client');
+                return await res.json();
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
@@ -212,21 +290,41 @@ export function useUpdateClient() {
 
     return useMutation({
         mutationFn: async (payload: { id: string } & Partial<Omit<Client, 'id' | 'invoices'>>) => {
-            const res = await fetch(`${SERVER_URL}/clients/${payload.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: payload.name,
-                    rif: payload.rif,
-                    phone: payload.phone,
-                    email: payload.email,
-                    notes: payload.address,
-                    show_base_debt: payload.showBaseDebt !== undefined ? (payload.showBaseDebt ? 1 : 0) : undefined,
-                    show_surcharge_debt: payload.showSurchargeDebt !== undefined ? (payload.showSurchargeDebt ? 1 : 0) : undefined,
-                })
-            });
-            if (!res.ok) throw new Error('Error updating client');
-            return await res.json();
+            if (USE_SUPABASE_DIRECT && supabase) {
+                const { data, error } = await supabase
+                    .from('clients')
+                    .update({
+                        name: payload.name,
+                        rif: payload.rif,
+                        phone: payload.phone,
+                        email: payload.email,
+                        notes: payload.address,
+                        show_base_debt: payload.showBaseDebt !== undefined ? (payload.showBaseDebt ? 1 : 0) : undefined,
+                        show_surcharge_debt: payload.showSurchargeDebt !== undefined ? (payload.showSurchargeDebt ? 1 : 0) : undefined,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', payload.id)
+                    .select()
+                    .single();
+                if (error) throw error;
+                return data;
+            } else {
+                const res = await fetch(`${SERVER_URL}/clients/${payload.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: payload.name,
+                        rif: payload.rif,
+                        phone: payload.phone,
+                        email: payload.email,
+                        notes: payload.address,
+                        show_base_debt: payload.showBaseDebt !== undefined ? (payload.showBaseDebt ? 1 : 0) : undefined,
+                        show_surcharge_debt: payload.showSurchargeDebt !== undefined ? (payload.showSurchargeDebt ? 1 : 0) : undefined,
+                    })
+                });
+                if (!res.ok) throw new Error('Error updating client');
+                return await res.json();
+            }
         },
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
@@ -259,23 +357,54 @@ export function useAppendExcelInvoice() {
                 }))
                 : [{ description: 'Deuda Asignada', quantity: 1, unit_price: totalAmount - iva }];
 
-            const res = await fetch(`${SERVER_URL}/invoices`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    client_id: clientId,
-                    valery_note_id: docNumber,
-                    issue_date: issueDate,
-                    due_date: dueDate,
-                    total_amount: totalAmount,
-                    iva: iva,
-                    balance: totalAmount,
-                    status,
-                    products: formattedProducts
-                })
-            });
-            if (!res.ok) throw new Error('Error assigning invoice');
-            return await res.json();
+            if (USE_SUPABASE_DIRECT && supabase) {
+                // 1. Create Invoice
+                const { data: invData, error: invError } = await supabase
+                    .from('invoices')
+                    .insert({
+                        client_id: clientId,
+                        valery_note_id: docNumber,
+                        issue_date: issueDate,
+                        due_date: dueDate,
+                        total_amount: totalAmount,
+                        iva: iva,
+                        balance: totalAmount,
+                        status
+                    })
+                    .select()
+                    .single();
+                if (invError) throw invError;
+
+                // 2. Create Products
+                const productPayloads = formattedProducts.map(p => ({
+                    invoice_id: invData.id,
+                    description: p.description,
+                    quantity: p.quantity,
+                    unit_price: p.unit_price
+                }));
+                const { error: prodError } = await supabase.from('invoice_products').insert(productPayloads);
+                if (prodError) throw prodError;
+
+                return invData;
+            } else {
+                const res = await fetch(`${SERVER_URL}/invoices`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        client_id: clientId,
+                        valery_note_id: docNumber,
+                        issue_date: issueDate,
+                        due_date: dueDate,
+                        total_amount: totalAmount,
+                        iva: iva,
+                        balance: totalAmount,
+                        status,
+                        products: formattedProducts
+                    })
+                });
+                if (!res.ok) throw new Error('Error assigning invoice');
+                return await res.json();
+            }
         },
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
@@ -294,21 +423,58 @@ export function useRegisterPayment() {
             invoiceId: string;
             amount: number;
         }) => {
-            const res = await fetch(`${SERVER_URL}/invoices/${payload.invoiceId}/payments`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    amount: payload.amount,
-                    method: 'App Dashboard',
-                    exchange_rate: 1,
-                    surcharge_pct: 0
-                })
-            });
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                throw new Error(data.error || 'Error registering payment');
+            if (USE_SUPABASE_DIRECT && supabase) {
+                // In direct mode, we need to:
+                // 1. Get current invoice balance
+                const { data: inv, error: fetchError } = await supabase
+                    .from('invoices')
+                    .select('balance, total_amount')
+                    .eq('id', payload.invoiceId)
+                    .single();
+                if (fetchError) throw fetchError;
+
+                const newBalance = Math.max(0, inv.balance - payload.amount);
+                const newStatus = newBalance <= 0 ? 'pagado' : 'pendiente';
+
+                // 2. Insert Payment record
+                const { error: payError } = await supabase
+                    .from('payments')
+                    .insert({
+                        invoice_id: payload.invoiceId,
+                        client_id: payload.clientId,
+                        amount: payload.amount,
+                        method: 'App Dashboard (Online)',
+                        exchange_rate: 1,
+                        surcharge_pct: 0,
+                        payment_date: new Date().toISOString()
+                    });
+                if (payError) throw payError;
+
+                // 3. Update Invoice Balance
+                const { error: updError } = await supabase
+                    .from('invoices')
+                    .update({ balance: newBalance, status: newStatus, updated_at: new Date().toISOString() })
+                    .eq('id', payload.invoiceId);
+                if (updError) throw updError;
+
+                return { success: true };
+            } else {
+                const res = await fetch(`${SERVER_URL}/invoices/${payload.invoiceId}/payments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: payload.amount,
+                        method: 'App Dashboard',
+                        exchange_rate: 1,
+                        surcharge_pct: 0
+                    })
+                });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.error || 'Error registering payment');
+                }
+                return await res.json();
             }
-            return await res.json();
         },
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['clients'] });

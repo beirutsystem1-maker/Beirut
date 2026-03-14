@@ -49,6 +49,34 @@ const { startBackupService } = require('./backup'); // Importar el servicio de r
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// ── Bootstrap ────────────────────────────────────────────────────────────────
+async function bootstrap() {
+    try {
+        console.log('⏳ Inicializando base de datos local...');
+        await initDb();
+        console.log('✅ Base de datos local inicializada');
+
+        app.listen(PORT, () => {
+            console.log('');
+            console.log('╔══════════════════════════════════════════╗');
+            console.log('║     🏙  BEIRUT — Servidor Local           ║');
+            console.log(`║     Puerto: ${PORT}                          ║`);
+            console.log('╚══════════════════════════════════════════╝');
+            console.log('');
+            // Motor de sincronización bidireccional (cada 5 segundos para comunicación constante)
+            startSync(5000);
+            
+            // Iniciar servicio de respaldo automático a GitHub (cada 30 segundos)
+            startBackupService(0.5);
+        });
+    } catch (e) {
+        console.error('❌ Error fatal en bootstrap:', e);
+        process.exit(1);
+    }
+}
+
+bootstrap();
+
 // ── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
     origin: [
@@ -108,26 +136,4 @@ app.get('/api/health', (_req, res) => {
 app.use((_req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 
 // ── Bootstrap ────────────────────────────────────────────────────────────────
-async function bootstrap() {
-    console.log('⏳ Inicializando base de datos local...');
-    await initDb();
-
-    app.listen(PORT, () => {
-        console.log('');
-        console.log('╔══════════════════════════════════════════╗');
-        console.log('║     🏙  BEIRUT — Servidor Local           ║');
-        console.log(`║     Puerto: ${PORT}                          ║`);
-        console.log('╚══════════════════════════════════════════╝');
-        console.log('');
-        // Motor de sincronización bidireccional (cada 5 segundos para comunicación constante)
-        startSync(5000);
-        
-        // Iniciar servicio de respaldo automático a GitHub (cada 30 segundos)
-        startBackupService(0.5);
-    });
-}
-
-bootstrap().catch(e => {
-    console.error('❌ Error al iniciar el servidor:', e.message);
-    process.exit(1);
-});
+// Bootstrap ya se llamó arriba para asegurar el orden de carga de la DB.

@@ -3,6 +3,11 @@ import { ShieldAlert, Trash2, Database, Loader2, X, AlertTriangle, KeyRound, Bui
 import { useQueryClient } from '@tanstack/react-query';
 import { useSettings } from '../logic/SettingsContext';
 import { SERVER_URL } from '../logic/useClients';
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 export function SettingsView() {
     const { settings, updateSettings } = useSettings();
@@ -29,11 +34,22 @@ export function SettingsView() {
         setStatusText("Limpiando base de datos en Supabase...");
 
         try {
-            const res = await fetch(`${SERVER_URL}/settings/wipe`, { method: 'POST' });
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || 'Error desconocido del servidor');
-            }
+            if (!supabase) throw new Error("Supabase client not initialized");
+            
+            // Delete payments and invoices first to avoid FK constraints, then clients
+            const uuidNull = '00000000-0000-0000-0000-000000000000';
+            
+            const { error: err1 } = await supabase.from('invoice_products').delete().neq('id', uuidNull);
+            if (err1) throw new Error('Error limpiando productos: ' + err1.message);
+
+            const { error: err2 } = await supabase.from('payments').delete().neq('id', uuidNull);
+            if (err2) throw new Error('Error limpiando pagos: ' + err2.message);
+
+            const { error: err3 } = await supabase.from('invoices').delete().neq('id', uuidNull);
+            if (err3) throw new Error('Error limpiando facturas: ' + err3.message);
+
+            const { error: err4 } = await supabase.from('clients').delete().neq('id', uuidNull);
+            if (err4) throw new Error('Error limpiando clientes: ' + err4.message);
 
             localStorage.clear();
             queryClient.invalidateQueries();
@@ -54,10 +70,57 @@ export function SettingsView() {
         setShowDemoModal(false);
 
         try {
-            const res = await fetch(`${SERVER_URL}/settings/demo`, { method: 'POST' });
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || 'Error en servidor local al inyectar demo');
+            if (!supabase) throw new Error("Supabase client not initialized");
+
+            const demoClients = [
+                { name: "La Gran Distribuidora C.A.", rif: "J-30123456-7" },
+                { name: "Inversiones Mar Azul", rif: "J-40555666-8" },
+                { name: "Bodegón Caracas Express", rif: "J-50111222-3" },
+                { name: "Suministros del Norte", rif: "J-29888777-1" },
+                { name: "Farmacia San José", rif: "J-31444555-9" }
+            ];
+
+            const amounts = [1500, 850, 450, 120, 340];
+            const states = ['en mora', 'en mora', 'pendiente', 'pagado', 'pagado'];
+            const jan2026 = "2026-01-15";
+            const feb2026 = "2026-02-10";
+
+            for (let i = 0; i < demoClients.length; i++) {
+                // Insert Client
+                const { data: clientData, error: clientErr } = await supabase.from('clients').insert({
+                    name: demoClients[i].name,
+                    rif: demoClients[i].rif,
+                    phone: '+584140000000',
+                    email: 'demo@empresa.com',
+                    is_active: true
+                }).select('id').single();
+                
+                if (clientErr) throw clientErr;
+                const cid = clientData.id;
+
+                // Insert Invoice
+                const { data: invData, error: invErr } = await supabase.from('invoices').insert({
+                    client_id: cid,
+                    valery_note_id: `NE-DEMO-${i}`,
+                    issue_date: jan2026,
+                    due_date: feb2026,
+                    total_amount: amounts[i],
+                    balance: states[i] === 'pagado' ? 0 : amounts[i],
+                    status: states[i]
+                }).select('id').single();
+
+                if (invErr) throw invErr;
+                const invId = invData.id;
+
+                // Insert Product
+                const { error: prodErr } = await supabase.from('invoice_products').insert({
+                    invoice_id: invId,
+                    description: `Producto Demo ${i}`,
+                    quantity: 1,
+                    unit_price: amounts[i]
+                });
+
+                if (prodErr) throw prodErr;
             }
 
             queryClient.invalidateQueries();

@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/pdf.cjs": {
+    "api/pdf.js": {
       "maxDuration": 30
     }
   },

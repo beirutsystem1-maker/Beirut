@@ -2,11 +2,11 @@
  * Vercel Serverless Function — PDF Extract via Gemini Vision
  * Route: /api/pdf  (POST)
  *
+ * Written in ESM syntax because package.json has "type": "module".
  * Parses a PDF invoice using Google Gemini Vision AI and returns structured JSON.
- * This replaces the local Express server route (server/routes/pdf.js) for the cloud deployment.
  */
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const MODEL_NAME = 'gemini-2.5-flash';
 
@@ -72,8 +72,6 @@ function extractJSON(text) {
 
 /**
  * Parse multipart/form-data manually from the raw body buffer.
- * Vercel's serverless environment doesn't ship with multer, so we handle
- * multipart parsing ourselves using the boundary from Content-Type header.
  */
 function parseMultipart(buffer, boundary) {
     const sep = Buffer.from(`--${boundary}`);
@@ -83,15 +81,14 @@ function parseMultipart(buffer, boundary) {
     while (start < buffer.length) {
         const sepIdx = buffer.indexOf(sep, start);
         if (sepIdx === -1) break;
-        const headerStart = sepIdx + sep.length + 2; // skip CRLF after boundary
+        const headerStart = sepIdx + sep.length + 2;
         const headerEnd = buffer.indexOf(Buffer.from('\r\n\r\n'), headerStart);
         if (headerEnd === -1) break;
 
         const headerStr = buffer.slice(headerStart, headerEnd).toString('utf8');
-        const contentStart = headerEnd + 4; // skip \r\n\r\n
+        const contentStart = headerEnd + 4;
         const nextSep = buffer.indexOf(sep, contentStart);
-        const contentEnd = nextSep === -1 ? buffer.length : nextSep - 2; // -2 for CRLF before boundary
-
+        const contentEnd = nextSep === -1 ? buffer.length : nextSep - 2;
         const content = buffer.slice(contentStart, contentEnd);
 
         const nameMatch = headerStr.match(/name="([^"]+)"/);
@@ -106,7 +103,6 @@ function parseMultipart(buffer, boundary) {
                 data: content
             });
         }
-
         start = nextSep === -1 ? buffer.length : nextSep;
     }
     return parts;
@@ -121,8 +117,7 @@ async function readBody(req) {
     });
 }
 
-module.exports = async function handler(req, res) {
-    // CORS headers so Vercel frontend can call it
+export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -212,4 +207,4 @@ module.exports = async function handler(req, res) {
         console.error('[OCR Serverless] Error:', err.message);
         return res.status(500).json({ error: 'Error procesando PDF con Gemini: ' + err.message });
     }
-};
+}

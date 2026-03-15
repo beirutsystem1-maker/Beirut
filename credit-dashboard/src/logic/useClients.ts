@@ -160,11 +160,23 @@ export function useClientSearch(searchTerm: string, enabled = true) {
         queryFn: async () => {
             if (searchTerm.length < 2) return [];
 
+            const lower = searchTerm.toLowerCase();
+
+            if (USE_SUPABASE_DIRECT && supabase) {
+                const { data, error } = await supabase
+                    .from('clients')
+                    .select('id, name, rif')
+                    .or(`name.ilike.%${searchTerm}%,rif.ilike.%${searchTerm}%`)
+                    .is('deleted', false)
+                    .limit(5);
+                if (error) throw error;
+                return (data || []).map((c: any) => ({ id: c.id, name: c.name, rif: c.rif }));
+            }
+
             const res = await fetch(`${SERVER_URL}/clients`);
             if (!res.ok) throw new Error('Search failed');
             const { data } = await res.json();
 
-            const lower = searchTerm.toLowerCase();
             return data
                 .filter((c: any) => (c.name || '').toLowerCase().includes(lower) || (c.rif || '').toLowerCase().includes(lower))
                 .slice(0, 5)
@@ -489,6 +501,25 @@ export function useClientsStats() {
     return useQuery({
         queryKey: ['clients', 'stats'],
         queryFn: async () => {
+            if (USE_SUPABASE_DIRECT && supabase) {
+                const { data, error } = await supabase
+                    .from('clients')
+                    .select('id, invoices(id, status, balance, total_amount)')
+                    .is('deleted', false);
+                if (error) throw error;
+
+                let totalDebt = 0, totalPaid = 0, inMora = 0, pending = 0;
+                (data || []).forEach((c: any) => {
+                    (c.invoices || []).forEach((inv: any) => {
+                        if (inv.status === 'pagado') totalPaid += Number(inv.total_amount);
+                        else { totalDebt += Number(inv.balance); }
+                        if (inv.status === 'en mora') inMora++;
+                        if (inv.status === 'pendiente') pending++;
+                    });
+                });
+                return { totalDebt, totalPaid, inMora, pending, clientCount: (data || []).length };
+            }
+
             const res = await fetch(`${SERVER_URL}/clients/stats`);
             if (!res.ok) throw new Error('Error fetching stats');
             return await res.json();
@@ -516,6 +547,27 @@ export function useClientTransactions(clientId: string | null) {
         queryKey: ['transactions', clientId],
         queryFn: async (): Promise<Transaction[]> => {
             if (!clientId) return [];
+
+            if (USE_SUPABASE_DIRECT && supabase) {
+                const { data, error } = await supabase
+                    .from('payments')
+                    .select('id, invoice_id, amount, method, exchange_rate, surcharge_pct, payment_date')
+                    .eq('client_id', clientId)
+                    .order('payment_date', { ascending: false });
+                if (error) throw error;
+
+                return (data || []).map((p: any) => ({
+                    id: p.id,
+                    invoiceId: p.invoice_id,
+                    type: 'payment' as const,
+                    amountUsd: Number(p.amount),
+                    paymentMethod: p.method || 'App',
+                    metadata: { exchange_rate: p.exchange_rate, surcharge_pct: p.surcharge_pct },
+                    status: 'procesado' as const,
+                    createdAt: p.payment_date,
+                }));
+            }
+
             const res = await fetch(`${SERVER_URL}/clients/${clientId}/transactions`);
             if (!res.ok) throw new Error('Error fetching transactions');
             return await res.json();
@@ -531,6 +583,18 @@ export function useUpdateInvoiceDueDate() {
 
     return useMutation({
         mutationFn: async ({ clientId: _clientId, invoiceId, dueDate }: { clientId?: string; invoiceId: string; dueDate: string }) => {
+            if (USE_SUPABASE_DIRECT && supabase) {
+                // invoiceId may be a valery_note_id string, try matching by valery_note_id first then UUID
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId);
+                const matchCol = isUUID ? 'id' : 'valery_note_id';
+                const { error } = await supabase
+                    .from('invoices')
+                    .update({ due_date: dueDate, updated_at: new Date().toISOString() })
+                    .eq(matchCol, invoiceId);
+                if (error) throw error;
+                return { success: true };
+            }
+
             const res = await fetch(`${SERVER_URL}/invoices/${invoiceId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -560,6 +624,41 @@ export function useUpdateInvoiceProducts() {
             products: { id?: string; description: string; quantity: number; unit_price: number }[];
             apply_iva?: boolean;
         }) => {
+            if (USE_SUPABASE_DIRECT && supabase) {
+                // Resolve invoice UUID from valery_note_id if necessary
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId);
+                let resolvedId = invoiceId;
+                if (!isUUID) {
+                    const { data: invRow } = await supabase.from('invoices').select('id, total_amount, balance').eq('valery_note_id', invoiceId).single();
+                    if (!invRow) throw new Error('Factura no encontrada');
+                    resolvedId = invRow.id;
+                }
+
+                // Recalculate totals
+                const subtotal = products.reduce((s, p) => s + p.quantity * p.unit_price, 0);
+                const iva = apply_iva ? Math.round(subtotal * 0.16 * 100) / 100 : 0;
+                const total = Math.round((subtotal + iva) * 100) / 100;
+
+                // Delete existing products and re-insert
+                const { error: delErr } = await supabase.from('invoice_products').delete().eq('invoice_id', resolvedId);
+                if (delErr) throw delErr;
+
+                const { error: insErr } = await supabase.from('invoice_products').insert(
+                    products.map(p => ({ invoice_id: resolvedId, description: p.description, quantity: p.quantity, unit_price: p.unit_price }))
+                );
+                if (insErr) throw insErr;
+
+                // Update invoice totals
+                const { error: updErr } = await supabase.from('invoices').update({
+                    total_amount: total,
+                    iva,
+                    updated_at: new Date().toISOString()
+                }).eq('id', resolvedId);
+                if (updErr) throw updErr;
+
+                return { success: true };
+            }
+
             const res = await fetch(`${SERVER_URL}/invoices/${invoiceId}/products`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -584,6 +683,19 @@ export function useDeleteInvoice() {
 
     return useMutation({
         mutationFn: async ({ invoiceId }: { invoiceId: string; clientId: string }) => {
+            if (USE_SUPABASE_DIRECT && supabase) {
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId);
+                const matchCol = isUUID ? 'id' : 'valery_note_id';
+
+                // Soft-delete: mark as deleted
+                const { error } = await supabase
+                    .from('invoices')
+                    .update({ deleted: true, updated_at: new Date().toISOString() })
+                    .eq(matchCol, invoiceId);
+                if (error) throw error;
+                return { success: true };
+            }
+
             const res = await fetch(`${SERVER_URL}/invoices/${invoiceId}`, {
                 method: 'DELETE',
             });

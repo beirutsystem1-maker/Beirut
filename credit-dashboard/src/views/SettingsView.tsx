@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { ShieldAlert, Trash2, Database, Loader2, X, AlertTriangle, KeyRound, Building2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSettings } from '../logic/SettingsContext';
-import { SERVER_URL } from '../logic/useClients';
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';

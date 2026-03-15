@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import { AssignCreditModal } from '../components/AssignCreditModal';
 import { useBCV } from '../hooks/BCVContext';
-import { SERVER_URL } from '../logic/useClients';
+// PDF is processed via Vercel Serverless Function at /api/pdf
+const PDF_API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/pdf/extract` : '/api/pdf';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface ProductRow {
@@ -276,7 +277,7 @@ export function ExcelImportView() {
             formData.append('file', file);
             formData.append('exchangeRate', String(rateToUse));
 
-            fetch(`${SERVER_URL}/pdf/extract`, {
+            fetch(PDF_API_URL, {
                 method: 'POST',
                 body: formData,
             })
@@ -305,7 +306,7 @@ export function ExcelImportView() {
                         isFromOCR: true
                     }]);
                 })
-                .catch(err => setError(`[De: local:3001] ${err.message}`))
+                .catch(err => setError(`Error procesando PDF: ${err.message}`))
                 .finally(() => setLoading(false));
         } else {
             const reader = new FileReader();

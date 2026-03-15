@@ -267,7 +267,7 @@ export function useAddClient() {
                         rif: newClient.rif,
                         phone: newClient.phone,
                         email: newClient.email,
-                        notes: newClient.address,
+                        address: newClient.address,
                     })
                     .select()
                     .single();
@@ -308,9 +308,7 @@ export function useUpdateClient() {
                         rif: payload.rif,
                         phone: payload.phone,
                         email: payload.email,
-                        notes: payload.address,
-                        show_base_debt: payload.showBaseDebt !== undefined ? (payload.showBaseDebt ? 1 : 0) : undefined,
-                        show_surcharge_debt: payload.showSurchargeDebt !== undefined ? (payload.showSurchargeDebt ? 1 : 0) : undefined,
+                        address: payload.address,
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', payload.id)
@@ -377,7 +375,6 @@ export function useAppendExcelInvoice() {
                         issue_date: issueDate,
                         due_date: dueDate,
                         total_amount: totalAmount,
-                        iva: iva,
                         balance: totalAmount,
                         status
                     })
@@ -648,7 +645,6 @@ export function useUpdateInvoiceProducts() {
                 // Update invoice totals
                 const { error: updErr } = await supabase.from('invoices').update({
                     total_amount: total,
-                    iva,
                     updated_at: new Date().toISOString()
                 }).eq('id', resolvedId);
                 if (updErr) throw updErr;
@@ -684,10 +680,10 @@ export function useDeleteInvoice() {
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId);
                 const matchCol = isUUID ? 'id' : 'valery_note_id';
 
-                // Soft-delete: mark as deleted
+                // Hard-delete: delete the record entirely
                 const { error } = await supabase
                     .from('invoices')
-                    .update({ deleted: true, updated_at: new Date().toISOString() })
+                    .delete()
                     .eq(matchCol, invoiceId);
                 if (error) throw error;
                 return { success: true };

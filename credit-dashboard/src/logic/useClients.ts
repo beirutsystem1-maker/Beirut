@@ -26,7 +26,6 @@ async function fetchFromSupabase() {
                 invoice_products (*)
             )
         `)
-        .is('deleted', false)
         .order('name');
 
     if (error) throw error;
@@ -167,7 +166,6 @@ export function useClientSearch(searchTerm: string, enabled = true) {
                     .from('clients')
                     .select('id, name, rif')
                     .or(`name.ilike.%${searchTerm}%,rif.ilike.%${searchTerm}%`)
-                    .is('deleted', false)
                     .limit(5);
                 if (error) throw error;
                 return (data || []).map((c: any) => ({ id: c.id, name: c.name, rif: c.rif }));
@@ -504,8 +502,7 @@ export function useClientsStats() {
             if (USE_SUPABASE_DIRECT && supabase) {
                 const { data, error } = await supabase
                     .from('clients')
-                    .select('id, invoices(id, status, balance, total_amount)')
-                    .is('deleted', false);
+                    .select('id, invoices(id, status, balance, total_amount)');
                 if (error) throw error;
 
                 let totalDebt = 0, totalPaid = 0, inMora = 0, pending = 0;

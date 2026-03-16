@@ -41,7 +41,7 @@ function InvoiceRow({ invoice, onSelect, showBaseDebt, showSurchargeDebt }: { in
                     </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="font-bold text-foreground font-mono">{invoice.id}</span>
+                            <span className="font-bold text-foreground font-mono">{invoice.valeryNoteId}</span>
                             <span className={`text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded ${invoice.status === 'en mora' ? 'bg-rose-100 text-rose-700' : invoice.status === 'pagado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                                 {invoice.status}
                             </span>
@@ -266,7 +266,7 @@ function InvoiceDetailModal({
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
                             <span className="text-base font-bold text-gray-900 tracking-tight">
-                                {invoice.id}
+                                {invoice.valeryNoteId}
                             </span>
                             <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider
                                 ${invoice.status === 'en mora' ? 'bg-red-100 text-red-700 animate-pulse' : 
@@ -552,7 +552,7 @@ function InvoiceDetailModal({
                                 <Trash2 className="w-6 h-6" />
                             </div>
                             <h3 className="font-bold text-lg mb-1.5 text-gray-900">Eliminar Factura</h3>
-                            <p className="text-sm font-mono font-bold text-red-500 mb-4 bg-red-50 px-3 py-1 rounded-lg">{invoice.id}</p>
+                             <p className="text-sm font-mono font-bold text-red-500 mb-4 bg-red-50 px-3 py-1 rounded-lg">{invoice.valeryNoteId}</p>
                             
                             {deleteError ? (
                                 <div className="mb-6 p-3 rounded-lg bg-red-50 w-full">

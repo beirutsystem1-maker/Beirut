@@ -414,6 +414,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
 
                 return {
                     id: inv.id,
+                    valeryNoteId: inv.valeryNoteId,
                     clienteId: client.id,
                     clienteNombre: client.name,
                     emision: formatLocalISO(inv.dueDate),

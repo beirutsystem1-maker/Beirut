@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 export interface FichaCalendarioDato {
-    id: string;
+    id: string; // UUID de Supabase
+    valeryNoteId: string; // ID de negocio
     clienteId: string;
     clienteNombre: string;
     emision: string; // YYYY-MM-DD
@@ -409,7 +410,7 @@ function FichaCard({ ficha, factor, factorStr, onRegistrarPago, onVerHistorial }
                     </div>
                     <div className="truncate">
                         <p className="text-[14px] font-[600] text-[#1A1B2E] truncate leading-tight">{ficha.clienteNombre || 'Cliente'}</p>
-                        <p className="text-[11px] text-[#888780] mt-[2px] truncate">{ficha.id}</p>
+                        <p className="text-[11px] text-[#888780] mt-[2px] truncate">{ficha.valeryNoteId}</p>
                     </div>
                 </div>
                 

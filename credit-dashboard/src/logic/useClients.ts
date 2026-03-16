@@ -40,7 +40,8 @@ async function fetchFromSupabase() {
         showBaseDebt: row.show_base_debt === undefined ? true : Boolean(row.show_base_debt),
         showSurchargeDebt: row.show_surcharge_debt === undefined ? true : Boolean(row.show_surcharge_debt),
         invoices: (row.invoices || []).map((inv: any) => ({
-            id: inv.valery_note_id || inv.id,
+            id: inv.id,
+            valeryNoteId: inv.valery_note_id || '',
             issueDate: inv.issue_date || '',
             dueDate: inv.due_date || '',
             totalAmount: Number(inv.total_amount) || 0,
@@ -62,12 +63,13 @@ export interface Product {
 }
 
 export interface Invoice {
-    id: string; // valery_note_id
+    id: string; // UUID de Supabase
+    valeryNoteId: string; // Número de nota de Valery (ej. "0000020046")
     issueDate: string;
     dueDate: string;
     totalAmount: number;
     balance: number;
-    original?: number; // Added to support ClientList calculation
+    original?: number;
     iva?: number;
     status: 'pagado' | 'pendiente' | 'en mora';
     products: Product[];
@@ -121,7 +123,8 @@ export function useClients(page = 0, pageSize = DEFAULT_PAGE_SIZE) {
                     showBaseDebt: row.show_base_debt === undefined ? true : Boolean(row.show_base_debt),
                     showSurchargeDebt: row.show_surcharge_debt === undefined ? true : Boolean(row.show_surcharge_debt),
                     invoices: (row.invoices || []).map((inv: any) => ({
-                        id: inv.valery_note_id || inv.id,
+                        id: inv.id,
+                        valeryNoteId: inv.valery_note_id || '',
                         issueDate: inv.issue_date || '',
                         dueDate: inv.due_date || '',
                         totalAmount: Number(inv.total_amount) || 0,
@@ -195,7 +198,8 @@ export function useClientInvoices(clientId: string | null) {
             const data = await res.json();
 
             return data.map((inv: any) => ({
-                id: inv.valery_note_id || inv.id,
+                id: inv.id,
+                valeryNoteId: inv.valery_note_id || '',
                 issueDate: inv.issue_date,
                 dueDate: inv.due_date,
                 totalAmount: Number(inv.total_amount),
@@ -234,7 +238,8 @@ export function useClientFullData(clientId: string | null) {
                 showBaseDebt: row.show_base_debt === undefined ? true : Boolean(row.show_base_debt),
                 showSurchargeDebt: row.show_surcharge_debt === undefined ? true : Boolean(row.show_surcharge_debt),
                 invoices: (row.invoices || []).map((inv: any) => ({
-                    id: inv.valery_note_id || inv.id,
+                    id: inv.id,
+                    valeryNoteId: inv.valery_note_id || '',
                     issueDate: inv.issue_date,
                     dueDate: inv.due_date,
                     totalAmount: Number(inv.total_amount),
@@ -449,19 +454,19 @@ export function useRegisterPayment() {
             const surchargePercent = payload.surchargePercent ?? 0;
 
             if (USE_SUPABASE_DIRECT && supabase) {
-                // In direct mode, we need to:
-                // 1. Get current invoice balance
+                // In direct mode (Supabase), invoiceId is now ALWAYS a UUID thanks to the refactor
                 const { data: inv, error: fetchError } = await supabase
                     .from('invoices')
-                    .select('balance, total_amount, due_date')
+                    .select('id, balance, total_amount, due_date')
                     .eq('id', payload.invoiceId)
                     .single();
+                
                 if (fetchError) throw fetchError;
+                if (!inv) throw new Error(`Factura ${payload.invoiceId} no encontrada`);
 
                 const newBalance = Math.max(0, inv.balance - payload.amount);
                 const newStatus = newBalance <= 0 ? 'pagado' : (new Date(inv.due_date) < new Date() ? 'en mora' : 'pendiente');
 
-                // 2. Insert Payment record
                 const { error: payError } = await supabase
                     .from('payments')
                     .insert({
@@ -476,15 +481,15 @@ export function useRegisterPayment() {
                     });
                 if (payError) throw payError;
 
-                // 3. Update Invoice Balance
                 const { error: updError } = await supabase
                     .from('invoices')
                     .update({ balance: newBalance, status: newStatus, updated_at: new Date().toISOString() })
                     .eq('id', payload.invoiceId);
+                
                 if (updError) throw updError;
-
-                return { success: true };
+                return;
             } else {
+                // If using the local Bridge server, presumably the server handles valery_note_id mapping
                 const res = await fetch(`${SERVER_URL}/invoices/${payload.invoiceId}/payments`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -597,13 +602,10 @@ export function useUpdateInvoiceDueDate() {
     return useMutation({
         mutationFn: async ({ clientId: _clientId, invoiceId, dueDate }: { clientId?: string; invoiceId: string; dueDate: string }) => {
             if (USE_SUPABASE_DIRECT && supabase) {
-                // invoiceId may be a valery_note_id string, try matching by valery_note_id first then UUID
-                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId);
-                const matchCol = isUUID ? 'id' : 'valery_note_id';
                 const { error } = await supabase
                     .from('invoices')
                     .update({ due_date: dueDate, updated_at: new Date().toISOString() })
-                    .eq(matchCol, invoiceId);
+                    .eq('id', invoiceId);
                 if (error) throw error;
                 return { success: true };
             }
@@ -642,24 +644,17 @@ export function useUpdateInvoiceProducts() {
             apply_iva?: boolean;
         }) => {
             if (USE_SUPABASE_DIRECT && supabase) {
-                // Resolve invoice UUID from valery_note_id if necessary
-                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId);
-                let resolvedId = invoiceId;
-                let previousTotal = 0;
-                let previousBalance = 0;
-                if (!isUUID) {
-                    const { data: invRow } = await supabase.from('invoices').select('id, total_amount, balance').eq('valery_note_id', invoiceId).single();
-                    if (!invRow) throw new Error('Factura no encontrada');
-                    resolvedId = invRow.id;
-                    previousTotal = Number(invRow.total_amount) || 0;
-                    previousBalance = Number(invRow.balance) || 0;
-                } else {
-                    const { data: invRow } = await supabase.from('invoices').select('total_amount, balance').eq('id', resolvedId).single();
-                    if (invRow) {
-                        previousTotal = Number(invRow.total_amount) || 0;
-                        previousBalance = Number(invRow.balance) || 0;
-                    }
-                }
+                const { data: invRow } = await supabase
+                    .from('invoices')
+                    .select('id, total_amount, balance')
+                    .eq('id', invoiceId)
+                    .single();
+
+                if (!invRow) throw new Error('Factura no encontrada');
+
+                const resolvedId = invRow.id;
+                const previousTotal = Number(invRow.total_amount) || 0;
+                const previousBalance = Number(invRow.balance) || 0;
 
                 // Recalculate totals
                 const subtotal = products.reduce((s, p) => s + p.quantity * p.unit_price, 0);
@@ -717,14 +712,10 @@ export function useDeleteInvoice() {
     return useMutation({
         mutationFn: async ({ invoiceId }: { invoiceId: string; clientId: string }) => {
             if (USE_SUPABASE_DIRECT && supabase) {
-                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId);
-                const matchCol = isUUID ? 'id' : 'valery_note_id';
-
-                // Hard-delete: delete the record entirely
                 const { error } = await supabase
                     .from('invoices')
                     .delete()
-                    .eq(matchCol, invoiceId);
+                    .eq('id', invoiceId);
                 if (error) throw error;
                 return { success: true };
             }

@@ -465,6 +465,7 @@ export function useRegisterPayment() {
                 const { error: payError } = await supabase
                     .from('payments')
                     .insert({
+                        id: crypto.randomUUID(),
                         invoice_id: payload.invoiceId,
                         client_id: payload.clientId,
                         amount: payload.amount,

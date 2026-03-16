@@ -663,8 +663,9 @@ function GlobalPaymentModal({ client, totalDebt, onClose, onPaymentsConfirmed, r
             setToast(msg);
             setAmount('');
             setTimeout(() => { setToast(null); onClose(); }, 2800);
-        } catch {
-            setError('No se pudo registrar el pago. Verifica tu conexión.');
+        } catch (error: any) {
+            console.error('Payment registration failed:', error);
+            setError(`No se pudo registrar el pago. ${error.message || 'Verifica tu conexión.'}`);
         } finally {
             setIsProcessing(false);
         }

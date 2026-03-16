@@ -232,7 +232,7 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
             {/* PASO 3 — OVERLAY Y VENTANA FLOTANTE */}
             {diaSeleccionado && (
                 <div 
-                    className="fixed inset-0 bg-[rgba(0,0,0,0.45)] z-[100] flex items-center justify-center animate-fade-in"
+                    className="fixed inset-0 bg-[rgba(0,0,0,0.45)] z-[9999] flex items-center justify-center animate-fade-in"
                     onClick={(e) => {
                         if (e.target === e.currentTarget) cerrarVentana();
                     }}

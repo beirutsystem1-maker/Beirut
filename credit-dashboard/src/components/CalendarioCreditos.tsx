@@ -232,7 +232,7 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
             {/* PASO 3 — OVERLAY Y VENTANA FLOTANTE */}
             {diaSeleccionado && (
                 <div 
-                    className="absolute inset-0 bg-[#0f0f0c47] backdrop-blur-[1px] rounded-[10px] z-20 flex items-center justify-center animate-fade-in"
+                    className="fixed inset-0 bg-[rgba(0,0,0,0.45)] z-[100] flex items-center justify-center animate-fade-in"
                     onClick={(e) => {
                         if (e.target === e.currentTarget) cerrarVentana();
                     }}
@@ -267,34 +267,57 @@ function VentanaFlotante({ fecha, fichas, factorRecargo, onCerrar, onRegistrarPa
     onVerHistorial: (fid: string, cid: string) => void;
 }) {
     const fechaObj = new Date(fecha + 'T12:00:00');
-    const fechaFormateada = fechaObj.toLocaleDateString('es-VE', { 
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' 
-    });
-    const fechaDisplay = fechaFormateada.charAt(0).toUpperCase() + fechaFormateada.slice(1);
+    // Generar: "VIERNES · 2 OCT. 2026"
+    const dayName = fechaObj.toLocaleDateString('es-VE', { weekday: 'long' }).toUpperCase();
+    const day = fechaObj.getDate();
+    const monthName = fechaObj.toLocaleDateString('es-VE', { month: 'short' }).toUpperCase().replace('.', '');
+    const year = fechaObj.getFullYear();
+    const displayString = `${dayName} · ${day} ${monthName}. ${year}`;
+    
     const FACTOR = 1 + (factorRecargo / 100);
+    
+    // Suma de los "TOTAL (+X%)" de todas las facturas del día
+    const totalSaldosConRecargo = fichas.reduce((acc, f) => {
+        const saldo = f.original - f.pagado;
+        return acc + (saldo > 0 ? saldo * FACTOR : 0);
+    }, 0);
 
     return (
-        <div className="bg-white rounded-[16px] border border-[#e8e6e0] w-[920px] max-w-[95%] max-h-[90%] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,.18),0_2px_8px_rgba(0,0,0,.06)] animate-popIn">
+        <div className="bg-[#2B2B2B] rounded-[8px] w-[360px] max-w-[95%] shadow-2xl flex flex-col overflow-hidden transform scale-105 duration-200 transition-transform" 
+            style={{ maxHeight: '85vh' }}
+        >
             {/* HEADER */}
-            <div className="p-[16px_20px_12px] flex items-start justify-between sticky top-0 bg-white/95 backdrop-blur z-10">
+            <div className="bg-[#1A1B2E] p-[16px_20px] flex items-start justify-between relative shrink-0">
                 <div>
-                    <p className="text-[14px] font-medium text-[#1a1a18]">{fechaDisplay}</p>
-                    <p className="text-[11px] text-[#888780] mt-[3px]">
-                        {fichas.length} ficha{fichas.length !== 1 ? 's' : ''}
+                    <h3 className="text-[14px] font-bold text-[#CECBF6] tracking-wide mb-1">{displayString}</h3>
+                    <p className="text-[12px] text-[#A0A2E8]">
+                        {fichas.length} factura{fichas.length !== 1 ? 's' : ''} · ${totalSaldosConRecargo.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} total
                     </p>
                 </div>
-                <button onClick={onCerrar} className="bg-[#f5f4f0] border-none cursor-pointer w-[28px] h-[28px] rounded-full text-[14px] color-[#888780] flex items-center justify-center hover:bg-[#e8e6e0] transition-colors">✕</button>
+                <button 
+                    onClick={onCerrar} 
+                    className="w-[28px] h-[28px] rounded-full bg-[#2A2B45] text-[#A0A2E8] flex items-center justify-center hover:bg-[#3E3F61] hover:text-white transition-colors border border-[#3E3F61]"
+                >
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
 
-            <hr className="border-none border-t border-[#f0efe8] mx-[20px]" />
-
-            {/* GRID DE FICHAS */}
-            <div className="p-[14px_16px] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[10px]">
+            {/* GRID DE FICHAS (scrollable) */}
+            <div className="p-[16px_16px] flex flex-col gap-[14px] overflow-y-auto dark-scrollbar" style={{ overscrollBehavior: 'contain' }}>
+                <style dangerouslySetInnerHTML={{__html: `
+                    .dark-scrollbar::-webkit-scrollbar { width: 6px; }
+                    .dark-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                    .dark-scrollbar::-webkit-scrollbar-thumb { background: #4A4A4A; border-radius: 4px; }
+                    .dark-scrollbar::-webkit-scrollbar-thumb:hover { background: #606060; }
+                `}} />
                 {fichas.map(f => (
                     <FichaCard 
                         key={f.id} 
                         ficha={f} 
                         factor={FACTOR} 
+                        factorStr={`+${factorRecargo}%`}
                         onRegistrarPago={onRegistrarPago} 
                         onVerHistorial={onVerHistorial} 
                     />
@@ -305,9 +328,10 @@ function VentanaFlotante({ fecha, fichas, factorRecargo, onCerrar, onRegistrarPa
 }
 
 // PASO 5 — COMPONENTE FichaCard
-function FichaCard({ ficha, factor, onRegistrarPago, onVerHistorial }: {
+function FichaCard({ ficha, factor, factorStr, onRegistrarPago, onVerHistorial }: {
     ficha: FichaCalendarioDato;
     factor: number;
+    factorStr: string;
     onRegistrarPago: (fid: string, cid: string) => void;
     onVerHistorial: (fid: string, cid: string) => void;
 }) {
@@ -315,85 +339,86 @@ function FichaCard({ ficha, factor, onRegistrarPago, onVerHistorial }: {
     const total = saldo * factor;
     const pct = ficha.original > 0 ? Math.round(ficha.pagado / ficha.original * 100) : 0;
 
-    const colorBarra = pct >= 60 ? '#1D9E75' : pct > 0 ? '#378ADD' : '#E24B4A';
-    const colorSaldo = saldo <= 0 ? '#1D9E75' : '#1a1a18';
-    const colorTotal = saldo <= 0 ? '#1D9E75' : '#BA7517';
+    const getInitials = (name: string) => {
+        const parts = name.trim().split(' ');
+        if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+        return name.substring(0, 2).toUpperCase() || 'NA';
+    };
 
     const ESTADO_CFG = { 
-        mora:      { label: 'En mora',   bg: '#FCEBEB', color: '#A32D2D', barra: '#E24B4A' }, 
-        pendiente: { label: 'Pendiente', bg: '#FAEEDA', color: '#633806', barra: '#EF9F27' }, 
-        pagado:    { label: 'Al día',    bg: '#E1F5EE', color: '#085041', barra: '#1D9E75' }, 
-        parcial:   { label: 'Parcial',   bg: '#E6F1FB', color: '#185FA5', barra: '#378ADD' }, 
+        mora:      { label: 'En mora',   bg: '#FCEBEB', text: '#A32D2D', border: '#A32D2D' }, 
+        pendiente: { label: 'Pendiente', bg: '#EFEFFA', text: '#534AB7', border: '#534AB7' }, 
+        pagado:    { label: 'Al día',    bg: '#E1F5EE', text: '#085041', border: '#1D9E75' }, 
+        parcial:   { label: 'Parcial',   bg: '#E1F5EE', text: '#0F6E56', border: '#0F6E56' }, 
     };
     const cfg = ESTADO_CFG[ficha.estado] || ESTADO_CFG.pendiente;
 
-    const fmtFecha = (s: string) => new Date(s + 'T12:00:00').toLocaleDateString('es-VE', { 
-        day: '2-digit', month: 'short', year: 'numeric' 
-    });
     const fmtNum = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     return (
-        <div className="bg-[#fafaf8] rounded-[10px] border border-[#e8e6e0] p-[12px] relative overflow-hidden">
-            {/* Barra lateral de color */}
-            <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: cfg.barra }} />
+        <div className="bg-[#242424] rounded-[8px] p-[16px] relative overflow-hidden shrink-0 flex flex-col gap-[14px] border border-[#3A3A3A]">
+            {/* Borde lateral */}
+            <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: cfg.border }} />
 
-            {/* ID + Badge */}
-            <div className="flex items-center justify-between mb-[8px]">
-                <span className="text-[11px] font-medium text-[#1a1a18]">📄 {ficha.id}</span>
-                <span className="text-[9px] font-medium px-[8px] py-[2px] rounded-[20px]" style={{ background: cfg.bg, color: cfg.color }}>
+            {/* HEADER: Avatar, Nombre, Badge */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-[10px] overflow-hidden">
+                    <div 
+                        className="w-[32px] h-[32px] shrink-0 rounded-full flex items-center justify-center font-bold text-[12px]"
+                        style={{ background: cfg.bg, color: cfg.text }}
+                    >
+                        {getInitials(ficha.clienteNombre)}
+                    </div>
+                    <div className="truncate">
+                        <p className="text-[14px] font-semibold text-white truncate leading-tight">{ficha.clienteNombre || 'Cliente'}</p>
+                        <p className="text-[11px] text-[#A0A0A0] mt-[2px] truncate">{ficha.id}</p>
+                    </div>
+                </div>
+                
+                <div 
+                    className="shrink-0 px-[10px] py-[3px] rounded-full text-[11px] font-semibold"
+                    style={{ background: cfg.bg, color: cfg.text }}
+                >
                     {cfg.label}
-                </span>
+                </div>
             </div>
 
-            {/* Nombre cliente */}
-            {ficha.clienteNombre && (
-                <p className="text-[10px] text-[#888780] mb-[8px] font-medium truncate">{ficha.clienteNombre}</p>
-            )}
-
-            {/* Montos */}
-            <div className="flex justify-between items-end mb-[8px]">
+            {/* MONTOS BASE / +30% */}
+            <div className="flex justify-between items-center relative">
                 <div>
-                    <p className="text-[9px] text-[#888780] uppercase tracking-[.04em] mb-[2px] font-bold">SALDO BASE</p>
-                    <p className="text-[20px] font-medium leading-none" style={{ color: colorSaldo }}>${fmtNum(saldo)}</p>
-                    <p className="text-[10px] text-[#888780] mt-[1px]">Orig: ${fmtNum(ficha.original)}</p>
+                    <p className="text-[10px] uppercase text-[#A0A0A0] font-semibold tracking-wider mb-[2px]">BASE</p>
+                    <p className="text-[17px] font-semibold text-white leading-none">${fmtNum(saldo)}</p>
                 </div>
                 <div className="text-right">
-                    <p className="text-[9px] text-[#888780] uppercase tracking-[.04em] font-bold">TOTAL (+{Math.round((factor - 1) * 100)}%)</p>
-                    <p className="text-[13px] font-medium mt-[2px]" style={{ color: colorTotal }}>${fmtNum(saldo <= 0 ? 0 : total)}</p>
+                    <p className="text-[10px] uppercase text-[#A0A0A0] font-semibold tracking-wider mb-[2px]">{factorStr}</p>
+                    <p className="text-[17px] font-semibold leading-none" style={{ color: cfg.border }}>${fmtNum(saldo <= 0 ? 0 : total)}</p>
                 </div>
             </div>
 
-            {/* Barra de progreso */}
-            <div className="mb-[8px]">
-                <div className="flex justify-between text-[9px] mb-[3px] font-medium">
-                    <span style={{ color: colorBarra }}>{pct}% cubierto</span>
-                    <span className="text-[#888780]">Abonado: ${fmtNum(ficha.pagado)}</span>
-                </div>
-                <div className="h-[4px] bg-[#e8e6e0] rounded-[2px] overflow-hidden">
-                    <div className="h-full transition-all duration-500" style={{ width: `${pct}%`, background: colorBarra }} />
+            {/* BARRA PROGRESO */}
+            <div className="h-[3px] bg-[#3B3B3B] rounded-full overflow-hidden w-full">
+                <div className="h-full rounded-full transition-all duration-500 relative" style={{ width: `${Math.max(pct, 2)}%`, background: cfg.border }}>
+                     {/* The bright edge for premium look */}
+                     <div className="absolute right-0 top-0 bottom-0 w-[4px] bg-white opacity-40 rounded-r-full" />
                 </div>
             </div>
 
-            {/* Meta */}
-            <div className="flex gap-[8px] text-[9px] text-[#888780] mb-[8px] flex-wrap font-medium">
-                <span>Emisión: <strong className="text-[#1a1a18]">{fmtFecha(ficha.emision)}</strong></span>
-                <span>Vence: <strong style={{ color: saldo > 0 && new Date() > new Date(ficha.vencimiento) ? '#E24B4A' : '#1a1a18' }}>{fmtFecha(ficha.vencimiento)}</strong></span>
-            </div>
-
-            {/* Botones */}
-            <div className="flex gap-[6px]">
+            {/* BOTONES */}
+            <div className="flex gap-[8px] mt-[4px]">
                 <button 
                     disabled={saldo <= 0} 
                     onClick={() => onRegistrarPago(ficha.id, ficha.clienteId)} 
-                    className={`flex-1 p-[7px_0] rounded-[7px] border-none text-[10px] font-bold transition-colors ${saldo <= 0 ? 'bg-[#f0efe8] text-[#b4b2a9] cursor-default' : 'bg-[#1D9E75] text-white cursor-pointer hover:bg-[#168a65]'}`}
+                    className={`flex-[1.5] py-[8px] rounded-[6px] text-[12px] font-semibold transition-colors flex items-center justify-center gap-[2px] border border-transparent
+                        ${saldo <= 0 ? 'bg-[#3B3B3B] text-[#808080] cursor-not-allowed border-[#4A4A4A]' : 'bg-[#1A1B2E] text-[#CECBF6] hover:bg-[#252640] hover:text-white cursor-pointer'}
+                    `}
                 >
-                    + Registrar pago
+                    {saldo > 0 && <span className="text-[13px] leading-none">+</span>} Registrar pago
                 </button>
                 <button 
                     onClick={() => onVerHistorial(ficha.id, ficha.clienteId)} 
-                    className="flex-1 p-[7px_0] rounded-[7px] border border-[#d3d1c7] text-[10px] font-bold bg-white text-[#444441] cursor-pointer hover:bg-[#f5f4f0] transition-colors"
+                    className="flex-1 py-[8px] rounded-[6px] border border-[#4A4A4A] text-[12px] font-semibold text-[#D0D0D0] hover:bg-[#3B3B3B] hover:text-white transition-colors cursor-pointer"
                 >
-                    Ver historial
+                    Historial
                 </button>
             </div>
         </div>

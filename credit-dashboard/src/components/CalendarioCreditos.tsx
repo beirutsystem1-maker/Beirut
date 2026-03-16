@@ -324,20 +324,20 @@ function VentanaFlotante({ fecha, fichas, factorRecargo, onCerrar, onRegistrarPa
     }, 0);
 
     return (
-        <div className="bg-[#2B2B2B] rounded-[8px] w-[360px] max-w-[95%] shadow-2xl flex flex-col overflow-hidden transform scale-105 duration-200 transition-transform" 
+        <div className="bg-[#ffffff] border-[0.5px] border-[#E2E0D8] rounded-[10px] w-[360px] max-w-[95%] shadow-2xl flex flex-col overflow-hidden transform scale-105 duration-200 transition-transform" 
             style={{ maxHeight: '85vh' }}
         >
             {/* HEADER */}
-            <div className="bg-[#1A1B2E] p-[16px_20px] flex items-start justify-between relative shrink-0">
+            <div className="bg-[#FAFAF8] border-b-[0.5px] border-[#E2E0D8] p-[12px_20px] flex items-center justify-between relative shrink-0">
                 <div>
-                    <h3 className="text-[14px] font-bold text-[#CECBF6] tracking-wide mb-1">{displayString}</h3>
-                    <p className="text-[12px] text-[#A0A2E8]">
+                    <h3 className="text-[12px] font-[500] text-[#1A1B2E] uppercase tracking-[0.06em] mb-[2px]">{displayString}</h3>
+                    <p className="text-[10px] text-[#888780]">
                         {fichas.length} factura{fichas.length !== 1 ? 's' : ''} · ${totalSaldosConRecargo.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})} total
                     </p>
                 </div>
                 <button 
                     onClick={onCerrar} 
-                    className="w-[28px] h-[28px] rounded-full bg-[#2A2B45] text-[#A0A2E8] flex items-center justify-center hover:bg-[#3E3F61] hover:text-white transition-colors border border-[#3E3F61]"
+                    className="w-[28px] h-[28px] rounded-full bg-white border-[0.5px] border-[#E2E0D8] text-[#888780] flex items-center justify-center hover:bg-[#F9F9F9] transition-colors"
                 >
                     <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -346,13 +346,7 @@ function VentanaFlotante({ fecha, fichas, factorRecargo, onCerrar, onRegistrarPa
             </div>
 
             {/* GRID DE FICHAS (scrollable) */}
-            <div className="p-[16px_16px] flex flex-col gap-[14px] overflow-y-auto dark-scrollbar" style={{ overscrollBehavior: 'contain' }}>
-                <style dangerouslySetInnerHTML={{__html: `
-                    .dark-scrollbar::-webkit-scrollbar { width: 6px; }
-                    .dark-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                    .dark-scrollbar::-webkit-scrollbar-thumb { background: #4A4A4A; border-radius: 4px; }
-                    .dark-scrollbar::-webkit-scrollbar-thumb:hover { background: #606060; }
-                `}} />
+            <div className="p-[16px_16px] flex flex-col gap-[14px] overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
                 {fichas.map(f => (
                     <FichaCard 
                         key={f.id} 
@@ -388,36 +382,36 @@ function FichaCard({ ficha, factor, factorStr, onRegistrarPago, onVerHistorial }
 
     const ESTADO_CFG = { 
         mora:      { label: 'En mora',   bg: '#FCEBEB', text: '#A32D2D', border: '#A32D2D' }, 
-        pendiente: { label: 'Pendiente', bg: '#EFEFFA', text: '#534AB7', border: '#534AB7' }, 
-        pagado:    { label: 'Al día',    bg: '#E1F5EE', text: '#085041', border: '#1D9E75' }, 
-        parcial:   { label: 'Parcial',   bg: '#E1F5EE', text: '#0F6E56', border: '#0F6E56' }, 
+        pendiente: { label: 'Pendiente', bg: '#FAEEDA', text: '#854F0B', border: '#BA7517' }, 
+        pagado:    { label: 'Al día',    bg: '#EAF3DE', text: '#27500A', border: '#3B6D11' }, 
+        parcial:   { label: 'Parcial',   bg: '#EAF3DE', text: '#27500A', border: '#3B6D11' }, 
     };
     const cfg = ESTADO_CFG[ficha.estado] || ESTADO_CFG.pendiente;
 
     const fmtNum = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     return (
-        <div className="bg-[#242424] rounded-[8px] p-[16px] relative overflow-hidden shrink-0 flex flex-col gap-[14px] border border-[#3A3A3A]">
+        <div className="bg-[#FAFAF8] rounded-[8px] p-[16px] relative overflow-hidden shrink-0 flex flex-col gap-[14px] border-[0.5px] border-[#E2E0D8]">
             {/* Borde lateral */}
-            <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: cfg.border }} />
+            <div className="absolute left-0 top-0 bottom-0 w-[2px]" style={{ background: cfg.border }} />
 
             {/* HEADER: Avatar, Nombre, Badge */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-[10px] overflow-hidden">
                     <div 
-                        className="w-[32px] h-[32px] shrink-0 rounded-full flex items-center justify-center font-bold text-[12px]"
+                        className="w-[32px] h-[32px] shrink-0 rounded-full flex items-center justify-center font-[600] text-[12px]"
                         style={{ background: cfg.bg, color: cfg.text }}
                     >
                         {getInitials(ficha.clienteNombre)}
                     </div>
                     <div className="truncate">
-                        <p className="text-[14px] font-semibold text-white truncate leading-tight">{ficha.clienteNombre || 'Cliente'}</p>
-                        <p className="text-[11px] text-[#A0A0A0] mt-[2px] truncate">{ficha.id}</p>
+                        <p className="text-[14px] font-[600] text-[#1A1B2E] truncate leading-tight">{ficha.clienteNombre || 'Cliente'}</p>
+                        <p className="text-[11px] text-[#888780] mt-[2px] truncate">{ficha.id}</p>
                     </div>
                 </div>
                 
                 <div 
-                    className="shrink-0 px-[10px] py-[3px] rounded-full text-[11px] font-semibold"
+                    className="shrink-0 px-[10px] py-[3px] rounded-[99px] text-[10px] font-[600]"
                     style={{ background: cfg.bg, color: cfg.text }}
                 >
                     {cfg.label}
@@ -427,20 +421,18 @@ function FichaCard({ ficha, factor, factorStr, onRegistrarPago, onVerHistorial }
             {/* MONTOS BASE / +30% */}
             <div className="flex justify-between items-center relative">
                 <div>
-                    <p className="text-[10px] uppercase text-[#A0A0A0] font-semibold tracking-wider mb-[2px]">BASE</p>
-                    <p className="text-[17px] font-semibold text-white leading-none">${fmtNum(saldo)}</p>
+                    <p className="text-[9px] uppercase text-[#B4B2A9] font-[600] tracking-wider mb-[2px]">BASE</p>
+                    <p className="text-[16px] font-[500] text-[#1A1B2E] leading-none">${fmtNum(saldo)}</p>
                 </div>
                 <div className="text-right">
-                    <p className="text-[10px] uppercase text-[#A0A0A0] font-semibold tracking-wider mb-[2px]">{factorStr}</p>
-                    <p className="text-[17px] font-semibold leading-none" style={{ color: cfg.border }}>${fmtNum(saldo <= 0 ? 0 : total)}</p>
+                    <p className="text-[9px] uppercase text-[#B4B2A9] font-[600] tracking-wider mb-[2px]">{factorStr}</p>
+                    <p className="text-[16px] font-[500] leading-none text-[#3B6D11]">${fmtNum(saldo <= 0 ? 0 : total)}</p>
                 </div>
             </div>
 
             {/* BARRA PROGRESO */}
-            <div className="h-[3px] bg-[#3B3B3B] rounded-full overflow-hidden w-full">
+            <div className="h-[3px] bg-[#E2E0D8] rounded-full overflow-hidden w-full">
                 <div className="h-full rounded-full transition-all duration-500 relative" style={{ width: `${Math.max(pct, 2)}%`, background: cfg.border }}>
-                     {/* The bright edge for premium look */}
-                     <div className="absolute right-0 top-0 bottom-0 w-[4px] bg-white opacity-40 rounded-r-full" />
                 </div>
             </div>
 
@@ -449,15 +441,15 @@ function FichaCard({ ficha, factor, factorStr, onRegistrarPago, onVerHistorial }
                 <button 
                     disabled={saldo <= 0} 
                     onClick={() => onRegistrarPago(ficha.id, ficha.clienteId)} 
-                    className={`flex-[1.5] py-[8px] rounded-[6px] text-[12px] font-semibold transition-colors flex items-center justify-center gap-[2px] border border-transparent
-                        ${saldo <= 0 ? 'bg-[#3B3B3B] text-[#808080] cursor-not-allowed border-[#4A4A4A]' : 'bg-[#1A1B2E] text-[#CECBF6] hover:bg-[#252640] hover:text-white cursor-pointer'}
+                    className={`flex-[1.5] py-[8px] rounded-[6px] text-[12px] font-[600] transition-colors flex items-center justify-center gap-[2px]
+                        ${saldo <= 0 ? 'bg-[#E2E0D8] text-[#888780] cursor-not-allowed' : 'bg-[#1A1B2E] text-[#CECBF6] hover:bg-[#252640] cursor-pointer'}
                     `}
                 >
                     {saldo > 0 && <span className="text-[13px] leading-none">+</span>} Registrar pago
                 </button>
                 <button 
                     onClick={() => onVerHistorial(ficha.id, ficha.clienteId)} 
-                    className="flex-1 py-[8px] rounded-[6px] border border-[#4A4A4A] text-[12px] font-semibold text-[#D0D0D0] hover:bg-[#3B3B3B] hover:text-white transition-colors cursor-pointer"
+                    className="flex-1 py-[8px] rounded-[6px] bg-white border-[0.5px] border-[#E2E0D8] text-[12px] font-[600] text-[#5F5E5A] hover:bg-[#F9F9F9] transition-colors cursor-pointer"
                 >
                     Historial
                 </button>

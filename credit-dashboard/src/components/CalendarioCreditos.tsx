@@ -273,7 +273,7 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
             {/* PASO 3 — OVERLAY Y VENTANA FLOTANTE */}
             {diaSeleccionado && (
                 <div 
-                    className="fixed inset-0 bg-[rgba(0,0,0,0.45)] z-[9999] flex items-center justify-center animate-fade-in"
+                    className="fixed inset-0 z-[9999] bg-[rgba(0,0,0,0.35)] flex items-center justify-center p-[1rem] max-sm:items-end animate-fade-in"
                     onClick={(e) => {
                         if (e.target === e.currentTarget) cerrarVentana();
                     }}
@@ -324,11 +324,12 @@ function VentanaFlotante({ fecha, fichas, factorRecargo, onCerrar, onRegistrarPa
     }, 0);
 
     return (
-        <div className="bg-[#ffffff] border-[0.5px] border-[#E2E0D8] rounded-[10px] w-[360px] max-w-[95%] shadow-2xl flex flex-col overflow-hidden transform scale-105 duration-200 transition-transform" 
-            style={{ maxHeight: '85vh' }}
+        <div 
+            className="relative w-full max-w-[360px] max-h-[80vh] flex flex-col bg-[#ffffff] border-[0.5px] border-[#E2E0D8] rounded-[10px] overflow-hidden max-sm:max-h-[90vh] max-sm:rounded-[10px_10px_0_0] shadow-2xl animate-fade-in"
+            onClick={e => e.stopPropagation()}
         >
             {/* HEADER */}
-            <div className="bg-[#FAFAF8] border-b-[0.5px] border-[#E2E0D8] p-[12px_20px] flex items-center justify-between relative shrink-0">
+            <div className="shrink-0 bg-[#FAFAF8] border-b-[0.5px] border-[#E2E0D8] p-[11px_14px] flex items-center justify-between">
                 <div>
                     <h3 className="text-[12px] font-[500] text-[#1A1B2E] uppercase tracking-[0.06em] mb-[2px]">{displayString}</h3>
                     <p className="text-[10px] text-[#888780]">
@@ -346,7 +347,7 @@ function VentanaFlotante({ fecha, fichas, factorRecargo, onCerrar, onRegistrarPa
             </div>
 
             {/* GRID DE FICHAS (scrollable) */}
-            <div className="p-[16px_16px] flex flex-col gap-[14px] overflow-y-auto" style={{ overscrollBehavior: 'contain' }}>
+            <div className="overflow-y-auto flex-1 p-[10px_12px] flex flex-col gap-[8px]" style={{ overscrollBehavior: 'contain' }}>
                 {fichas.map(f => (
                     <FichaCard 
                         key={f.id} 

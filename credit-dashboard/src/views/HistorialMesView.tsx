@@ -20,6 +20,7 @@ import {
     Edit2, Save, X, FileText, Loader2, CheckCircle2,
     AlertTriangle, DollarSign,
 } from 'lucide-react';
+import { parseLocalDate } from '../utils/dates';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -57,14 +58,14 @@ function fmt(v: number) {
 }
 function fmtDate(d: string) {
     if (!d) return '—';
-    return new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
+    return parseLocalDate(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 function getMonthKey(dateStr: string): string {
-    const d = new Date(dateStr);
+    const d = parseLocalDate(dateStr);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 function getMonthLabel(dateStr: string): string {
-    return new Date(dateStr)
+    return parseLocalDate(dateStr)
         .toLocaleDateString('es-VE', { month: 'long', year: 'numeric' })
         .replace(/^\w/, c => c.toUpperCase());
 }
@@ -306,7 +307,6 @@ function DueDateEditorInline({
             <div className="flex items-center gap-1">
                 <input
                     type="date" value={val}
-                    min={new Date().toISOString().slice(0, 10)}
                     onChange={e => setVal(e.target.value)}
                     className="text-[11px] border border-indigo-300 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white"
                 />

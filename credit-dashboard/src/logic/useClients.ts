@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@supabase/supabase-js';
+import { isOverdue } from '../utils/dates';
 
 // --- Supabase Config ---
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
@@ -371,7 +372,7 @@ export function useAppendExcelInvoice() {
             products?: { description?: string; quantity?: number; unit_price?: number; nombre?: string; precio?: number; unitPrice?: number; cantidad?: number }[];
         }) => {
             const { clientId, docNumber, issueDate, dueDate, totalAmount, iva = 0, products } = payload;
-            const status = new Date(dueDate) < new Date() ? 'en mora' : 'pendiente';
+            const status = isOverdue(dueDate) ? 'en mora' : 'pendiente';
 
             const formattedProducts = (products && products.length > 0)
                 ? products.map(p => ({
@@ -480,7 +481,7 @@ export function useRegisterPayment() {
                 if (!inv) throw new Error(`Factura ${resolvedInvoiceId} no encontrada`);
 
                 const newBalance = Math.max(0, inv.balance - payload.amount);
-                const newStatus = newBalance <= 0 ? 'pagado' : (new Date(inv.due_date) < new Date() ? 'en mora' : 'pendiente');
+                const newStatus = newBalance <= 0 ? 'pagado' : (isOverdue(inv.due_date) ? 'en mora' : 'pendiente');
 
                 const { error: payError } = await supabase
                     .from('payments')
@@ -661,7 +662,7 @@ export function useUpdateInvoiceProducts() {
             if (USE_SUPABASE_DIRECT && supabase) {
                 const { data: invRow } = await supabase
                     .from('invoices')
-                    .select('id, total_amount, balance')
+                    .select('id, total_amount, balance, due_date')
                     .eq('id', invoiceId)
                     .single();
 
@@ -679,7 +680,7 @@ export function useUpdateInvoiceProducts() {
                 // Calculate new balance: apply the same delta to balance as to total_amount
                 const delta = total - previousTotal;
                 const newBalance = Math.max(0, previousBalance + delta);
-                const newStatus = newBalance <= 0 ? 'pagado' : 'pendiente';
+                const newStatus = newBalance <= 0 ? 'pagado' : (isOverdue(invRow.due_date) ? 'en mora' : 'pendiente');
 
                 // Delete existing products and re-insert
                 const { error: delErr } = await supabase.from('invoice_products').delete().eq('invoice_id', resolvedId);

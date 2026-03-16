@@ -4,6 +4,7 @@ import { useClientSearch } from '../logic/useClients';
 import { useClients } from '../logic/ClientContext';
 import { supabase } from '../lib/supabase';
 import { CustomDatePicker } from './CustomDatePicker';
+import { toLocalDateString } from '../utils/dates';
 interface AssignCreditModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -63,7 +64,7 @@ export function AssignCreditModal({ isOpen, onClose, invoice, onAssign }: Assign
             setIsSubmitting(false);
             setDueDate('');
         } else if (invoice) {
-            setDueDate(invoice.fechaEmision || new Date().toISOString().split('T')[0]);
+            setDueDate(invoice.fechaEmision || toLocalDateString(new Date()));
         }
     }, [isOpen, invoice]);
 

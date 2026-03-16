@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { toLocalDateString } from '../utils/dates';
 
 const MODEL_NAME = 'gemini-2.5-flash';
 
@@ -111,7 +112,7 @@ export async function extractInvoiceData(file: File, envApiKey: string, userApiK
 
     return {
         documento: String(geminiData.documento || '').trim() || ('DOC-' + Date.now()),
-        fechaEmision: String(geminiData.fecha || new Date().toISOString().split('T')[0]),
+        fechaEmision: String(geminiData.fecha || toLocalDateString(new Date())),
         totalOperacion: grandTotal,
         divisas: grandTotal,
         vendedor: '',

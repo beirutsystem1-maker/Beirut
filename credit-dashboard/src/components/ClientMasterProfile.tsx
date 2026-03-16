@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import type { Client, Invoice } from '../logic/ClientContext';
 import { useClients } from '../logic/ClientContext';
 import { useBCV } from '../hooks/BCVContext';
+import { parseLocalDate, isOverdue } from '../utils/dates';
 
 interface ClientMasterProfileProps {
     client: Client | null;
@@ -20,7 +21,8 @@ function formatCurrency(v: number) {
 }
 
 function formatDate(d: string) {
-    return new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (!d) return '';
+    return parseLocalDate(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -48,7 +50,7 @@ function InvoiceRow({ invoice, onSelect, showBaseDebt, showSurchargeDebt }: { in
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                             <span>Emisión: <span className="font-semibold text-foreground/80">{formatDate(invoice.issueDate)}</span></span>
-                            <span>Vence: <strong className={new Date(invoice.dueDate) < new Date() && invoice.status !== 'pagado' ? 'text-rose-500' : ''}>{formatDate(invoice.dueDate)}</strong></span>
+                            <span>Vence: <strong className={isOverdue(invoice.dueDate) && invoice.status !== 'pagado' ? 'text-rose-500' : ''}>{formatDate(invoice.dueDate)}</strong></span>
                         </div>
                     </div>
                 </div>
@@ -127,14 +129,7 @@ function InvoiceDetailModal({
     const [deleteError, setDeleteError] = useState<string | null>(null);
 
     // Estado para la fecha de vencimiento editable
-    const [editedDueDate, setEditedDueDate] = useState(() => {
-        // Asegurar formato YYYY-MM-DD para el input type="date"
-        try {
-            return invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : '';
-        } catch(e) {
-            return invoice.dueDate || '';
-        }
-    });
+    const [editedDueDate, setEditedDueDate] = useState(() => invoice.dueDate || '');
 
     // Paginación
     const [currentPage, setCurrentPage] = useState(1);
@@ -200,8 +195,7 @@ function InvoiceDetailModal({
             });
 
             // ACCIÓN 1.5 - Actualizar fecha de vencimiento si cambió
-            const currentIsoDate = new Date(invoice.dueDate).toISOString().split('T')[0];
-            if (editedDueDate && editedDueDate !== currentIsoDate) {
+            if (editedDueDate && editedDueDate !== invoice.dueDate) {
                  await updateDueDate.mutateAsync({
                      clientId: clientId,
                      invoiceId: invoice.id,
@@ -309,7 +303,7 @@ function InvoiceDetailModal({
                                         setSaveSuccess(false);
                                     }}
                                     className={`text-[12px] font-bold px-2 py-0.5 rounded cursor-pointer transition-colors border-none outline-none ring-1 ring-transparent focus:ring-indigo-300 hover:bg-gray-100
-                                        ${(editedDueDate && new Date(editedDueDate) < new Date()) ? 'text-red-500 hover:bg-red-50' : 'text-gray-700 hover:bg-gray-100'}
+                                        ${isOverdue(editedDueDate) ? 'text-red-500 hover:bg-red-50' : 'text-gray-700 hover:bg-gray-100'}
                                     `}
                                 />
                             ) : (
@@ -630,7 +624,7 @@ function GlobalPaymentModal({ client, totalDebt, onClose, onPaymentsConfirmed, r
             .sort((a: Invoice, b: Invoice) => {
                 const ord: Record<string, number> = { 'en mora': 0, 'pendiente': 1 };
                 if ((ord[a.status] ?? 2) !== (ord[b.status] ?? 2)) return (ord[a.status] ?? 2) - (ord[b.status] ?? 2);
-                return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+                return parseLocalDate(a.dueDate).getTime() - parseLocalDate(b.dueDate).getTime();
             });
         const dist: { invoiceId: string; amount: number }[] = [];
         let remaining = amountUsd;

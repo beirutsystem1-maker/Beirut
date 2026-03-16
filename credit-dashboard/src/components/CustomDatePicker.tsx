@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { parseLocalDate, toLocalDateString } from '../utils/dates';
 
 interface CustomDatePickerProps {
     value: string; // YYYY-MM-DD
@@ -18,28 +19,15 @@ export function CustomDatePicker({ value, onChange, label }: CustomDatePickerPro
     const [isOpen, setIsOpen] = useState(false);
     const parseDate = (dateVal: string | Date | undefined | null): Date | null => {
         if (!dateVal) return null;
-
-        let d: Date;
-        if (typeof dateVal === 'string') {
-            if (dateVal.includes('/')) {
-                const parts = dateVal.split(' ')[0].split('/');
-                if (parts.length === 3) {
-                    const day = parseInt(parts[0], 10);
-                    const month = parseInt(parts[1], 10) - 1;
-                    const year = parseInt(parts[2], 10);
-                    d = new Date(year, month, day);
-                    if (!isNaN(d.getTime())) return d;
-                }
-            } else if (dateVal.includes('-')) {
-                const parts = dateVal.split('-');
-                if (parts.length === 3) {
-                    d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-                    if (!isNaN(d.getTime())) return d;
-                }
+        if (dateVal instanceof Date) return dateVal;
+        
+        try {
+            if (dateVal.includes('-')) {
+                return parseLocalDate(dateVal);
             }
-        }
+        } catch (e) {}
 
-        d = new Date(dateVal);
+        const d = new Date(dateVal);
         return isNaN(d.getTime()) ? null : d;
     };
 
@@ -146,9 +134,7 @@ export function CustomDatePicker({ value, onChange, label }: CustomDatePickerPro
             selectedDate.getMonth() === month &&
             selectedDate.getFullYear() === year;
 
-        const isToday = new Date().getDate() === day &&
-            new Date().getMonth() === month &&
-            new Date().getFullYear() === year;
+        const isToday = toLocalDateString(new Date()) === toLocalDateString(new Date(year, month, day));
 
         days.push(
             <button

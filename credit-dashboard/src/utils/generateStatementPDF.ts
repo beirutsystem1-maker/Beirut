@@ -1,5 +1,5 @@
-// Dynamic import para jspdf
 // import { jsPDF } from 'jspdf';
+import { parseLocalDate, isOverdue } from './dates';
 interface Product {
     description: string;
     quantity: number;
@@ -53,7 +53,7 @@ function formatCurrency(val: number) {
 
 function formatDate(dateStr?: string) {
     if (!dateStr) return '—';
-    const d = new Date(dateStr);
+    const d = parseLocalDate(dateStr);
     return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
@@ -73,7 +73,7 @@ export async function generateStatementPDF(opts: StatementOptions): Promise<void
 
     const pendingInvoices = invoices
         .filter(inv => inv.balance > 0)
-        .sort((a, b) => new Date(a.dueDate ?? '').getTime() - new Date(b.dueDate ?? '').getTime());
+        .sort((a, b) => parseLocalDate(a.dueDate ?? '').getTime() - parseLocalDate(b.dueDate ?? '').getTime());
 
     const totalDebt = pendingInvoices.reduce((s, i) => s + i.balance, 0);
     const totalConRecargo = totalDebt * factor;
@@ -269,7 +269,7 @@ export async function generateStatementPDF(opts: StatementOptions): Promise<void
             }
             rowAlt = !rowAlt;
 
-            const isOverdue = inv.dueDate ? new Date(inv.dueDate) < new Date() : false;
+            const overdue = isOverdue(inv.dueDate);
             const montoConRecargo = inv.balance * factor;
 
             doc.setTextColor(...COLORS.textDark);
@@ -285,7 +285,7 @@ export async function generateStatementPDF(opts: StatementOptions): Promise<void
             doc.text(formatDate(inv.issueDate), cols.date, y + 4.5);
 
             // Due date with color
-            if (isOverdue) doc.setTextColor(220, 38, 38);
+            if (overdue) doc.setTextColor(220, 38, 38);
             else doc.setTextColor(...COLORS.textDark);
             doc.text(formatDate(inv.dueDate), cols.due, y + 4.5);
 

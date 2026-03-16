@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { parseLocalDate, toLocalDateString } from '../utils/dates';
 export interface FichaCalendarioDato {
     id: string; // UUID de Supabase
     valeryNoteId: string; // ID de negocio
@@ -116,7 +117,7 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
             const dateKey = `${currentYear}-${String(monthIndex + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const dayFichas = groupByDate.get(dateKey) || [];
             
-            const isToday = new Date().toLocaleDateString('en-CA') === dateKey;
+            const isToday = toLocalDateString(new Date()) === dateKey;
             const hasFichas = dayFichas.length > 0;
 
             if (hasFichas) {
@@ -310,7 +311,7 @@ function VentanaFlotante({ fecha, fichas, factorRecargo, onCerrar, onRegistrarPa
     onRegistrarPago: (fid: string, cid: string) => void;
     onVerHistorial: (fid: string, cid: string) => void;
 }) {
-    const fechaObj = new Date(fecha + 'T12:00:00');
+    const fechaObj = parseLocalDate(fecha);
     // Generar: "VIERNES · 2 OCT. 2026"
     const dayName = fechaObj.toLocaleDateString('es-VE', { weekday: 'long' }).toUpperCase();
     const day = fechaObj.getDate();

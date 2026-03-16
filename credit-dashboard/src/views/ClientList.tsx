@@ -5,6 +5,7 @@ import {
     CheckCircle2, AlertCircle, MapPin
 } from 'lucide-react';
 import { useClients, calculateClientDebt, calculateClientStatus } from '../logic/ClientContext';
+import { parseLocalDate, isOverdue, toLocalDateString } from '../utils/dates';
 import type { Client, Invoice } from '../logic/ClientContext';
 import { ClientMasterProfile } from '../components/ClientMasterProfile';
 const STATUS_CONFIG = {
@@ -17,7 +18,7 @@ function formatCurrency(v: number) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
 }
 function formatDate(d: string) {
-    return new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
+    return parseLocalDate(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 import { CalendarioCreditos } from '../components/CalendarioCreditos';
@@ -388,12 +389,6 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
 
     // Construcción de la data plana de Fichas para el Calendario
     const mappedFichas = useMemo<FichaCalendarioDato[]>(() => {
-        const formatLocalISO = (d: string | Date) => {
-            const temp = new Date(d);
-            temp.setMinutes(temp.getMinutes() - temp.getTimezoneOffset());
-            return temp.toISOString().split('T')[0];
-        };
-
         return clients.flatMap(client => {
             return (client.invoices || []).map((inv: Invoice) => {
                 const totalOriginal = inv.original || inv.balance;
@@ -402,9 +397,8 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
 
                 let estado: 'mora' | 'pendiente' | 'parcial' | 'pagado' = 'pagado';
                 const isPagin = balance <= 0;
-                const vDate = new Date(inv.dueDate);
-                vDate.setHours(23, 59, 59, 999);
-                const isMora = !isPagin && vDate < new Date();
+                
+                const isMora = !isPagin && isOverdue(inv.dueDate);
                 const isParcial = !isPagin && !isMora && pagado > 0;
                 
                 if (isMora) estado = 'mora';
@@ -412,13 +406,14 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                 else if (isPagin) estado = 'pagado';
                 else if (inv.status === 'pagado' || inv.status === 'pendiente') estado = 'pendiente';
 
+                const isoDate = inv.dueDate; // Ya es YYYY-MM-DD
                 return {
                     id: inv.id,
                     valeryNoteId: inv.valeryNoteId,
                     clienteId: client.id,
                     clienteNombre: client.name,
-                    emision: formatLocalISO(inv.dueDate),
-                    vencimiento: formatLocalISO(inv.dueDate),
+                    emision: isoDate,
+                    vencimiento: isoDate,
                     estado,
                     original: totalOriginal,
                     pagado
@@ -459,7 +454,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         }
 
         // Sort ascending by due date (oldest / most overdue first)
-        pendingInvoices.sort((a: Invoice, b: Invoice) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+        pendingInvoices.sort((a: Invoice, b: Invoice) => parseLocalDate(a.dueDate).getTime() - parseLocalDate(b.dueDate).getTime());
 
         const surchargePercent = (() => {
             const s = localStorage.getItem('beirutSurchargePercent');
@@ -490,7 +485,8 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
 
         const montoBase = activeDebt;
         const totalConRecargo = montoBase * factor;
-        const today = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
+        const todayStr = toLocalDateString(new Date());
+        const today = parseLocalDate(todayStr).toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
 
         let msg =
             `*BEIRUT \u00b7 ESTADO DE CUENTA*\n` +

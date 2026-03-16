@@ -82,21 +82,29 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
         setFichasDelDia([]);
     };
 
-    const colorClasses = {
-        mora: 'bg-[#E24B4A] text-white',
-        pendiente: 'bg-[#EF9F27] text-white',
-        parcial: 'bg-[#378ADD] text-white',
-        pagado: 'bg-[#1D9E75] text-white'
+    const ESTADO_GRID = {
+        mora: 'bg-[#FCEBEB] text-[#A32D2D]',
+        pendiente: 'bg-[#FAEEDA] text-[#854F0B]',
+        parcial: 'bg-[#EAF3DE] text-[#27500A]',
+        pagado: 'bg-[#EAF3DE] text-[#27500A]'
     };
 
     const renderMonthGrid = (monthIndex: number) => {
         const date = new Date(currentYear, monthIndex, 1);
         const daysInMonth = new Date(currentYear, monthIndex + 1, 0).getDate();
         const firstDayOfWeek = date.getDay();
+        const prevMonthDays = new Date(currentYear, monthIndex, 0).getDate();
 
         const cells = [];
+        
+        // Días de otros meses (anterior)
         for (let i = 0; i < firstDayOfWeek; i++) {
-            cells.push(<div key={`empty-${i}`} className="w-6 h-6" />);
+            const dayNum = prevMonthDays - firstDayOfWeek + i + 1;
+            cells.push(
+                <div key={`empty-${i}`} className="w-[18px] h-[18px] text-[10px] mx-auto flex items-center justify-center text-[#D3D1C7] select-none">
+                    {dayNum}
+                </div>
+            );
         }
 
         let daysWithFichasCount = 0;
@@ -108,7 +116,6 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
             
             const isToday = new Date().toLocaleDateString('en-CA') === dateKey;
             const hasFichas = dayFichas.length > 0;
-            const multipleFichas = dayFichas.length > 1;
 
             if (hasFichas) {
                 daysWithFichasCount++;
@@ -116,55 +123,67 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
                 if (PRIORIDAD[peorDia] > PRIORIDAD[peorEstadoMes]) peorEstadoMes = peorDia;
             }
 
-            const estadoColor = hasFichas ? colorClasses[estadoMasGrave(dayFichas)] : '';
-            // PASO 9 — Marcar día seleccionado
+            const estadoColor = hasFichas ? ESTADO_GRID[estadoMasGrave(dayFichas)] : '';
             const esDiaSeleccionado = diaSeleccionado === dateKey;
+
+            let classes = "w-[18px] h-[18px] rounded-full text-[10px] mx-auto flex items-center justify-center select-none transition-transform ";
+            if (hasFichas) {
+                classes += `cursor-pointer font-medium hover:scale-110 ${estadoColor}`;
+            } else if (isToday) {
+                classes += `bg-[#1A1B2E] text-[#CECBF6] font-[600]`;
+            } else {
+                classes += `text-[#888780] hover:bg-[#E2E0D8] cursor-pointer`;
+            }
+
+            if (esDiaSeleccionado) {
+                classes += ` ring-[2px] ring-[#1a1a18] ring-offset-[1.5px] scale-110 font-bold`;
+            }
 
             cells.push(
                 <div 
                     key={dateKey}
                     onClick={() => handleDiaClick(dateKey)}
-                    className={`w-6 h-6 flex flex-col items-center justify-center text-[11px] select-none transition-all relative z-10
-                        ${hasFichas ? 'rounded-full cursor-pointer hover:opacity-80 hover:scale-110 font-medium ' + estadoColor : 'text-[#888780]'}
-                        ${!hasFichas && isToday ? 'bg-[#1a1a18] text-white rounded-full' : ''}
-                        ${esDiaSeleccionado ? 'outline-[2.5px] outline-solid outline-[#1a1a18] outline-offset-[1.5px] scale-110' : ''}
-                    `}
+                    className="relative flex justify-center cursor-pointer"
                 >
-                    <span className="leading-none">{d}</span>
-                    {multipleFichas && (
-                        <span className="absolute -bottom-[2px] w-[3px] h-[3px] bg-white rounded-full shadow-[0_0_2px_rgba(0,0,0,0.5)]"></span>
-                    )}
+                    <div className={classes}>
+                        <span className="leading-none">{d}</span>
+                    </div>
                 </div>
             );
         }
 
-        // badge configs
-        let badgeBg = 'bg-transparent';
-        let badgeColor = 'text-[#d3d1c7]';
-        let badgeText = '—';
-
-        if (daysWithFichasCount > 0) {
-            badgeText = `${daysWithFichasCount}f`;
-            if (peorEstadoMes === 'mora') { badgeBg = 'bg-[#FCEBEB]'; badgeColor = 'text-[#A32D2D]'; }
-            else if (peorEstadoMes === 'pendiente') { badgeBg = 'bg-[#FAEEDA]'; badgeColor = 'text-[#633806]'; }
-            else { badgeBg = 'bg-[#E1F5EE]'; badgeColor = 'text-[#085041]'; }
+        // Si la cuadrícula no llega a 42 celdas, llenamos con días del siguiente mes para que quede estético y uniforme
+        const totalCellsSoFar = firstDayOfWeek + daysInMonth;
+        const totalRows = Math.ceil(totalCellsSoFar / 7);
+        const targetCells = totalRows * 7;
+        
+        for (let i = totalCellsSoFar; i < targetCells; i++) {
+            const nextMonthDayNum = i - totalCellsSoFar + 1;
+            cells.push(
+                <div key={`next-empty-${i}`} className="w-[18px] h-[18px] text-[10px] mx-auto flex items-center justify-center text-[#D3D1C7] select-none">
+                    {nextMonthDayNum}
+                </div>
+            );
         }
 
         return (
-            // The class 'mes' goes on the wrapper
-            <div key={monthIndex} className="mes flex flex-col p-4 w-full relative">
-                <div className="flex items-center justify-between mb-3 px-1">
-                    <span className="text-[13px] font-medium text-[#1a1a18]">{MONTH_NAMES[monthIndex].substring(0,3)}</span>
-                    <span className={`px-[5px] py-[2px] rounded-[4px] text-[10px] font-bold tracking-wide leading-none ${badgeBg} ${badgeColor}`}>
-                        {badgeText}
+            <div key={monthIndex} className="mes flex flex-col p-[10px_10px_8px] w-full relative">
+                <div className="flex items-center justify-between mb-[8px] pl-[4px]">
+                    <span className="text-[11px] font-[500] text-[#1A1B2E] uppercase tracking-[0.07em]">
+                        {MONTH_NAMES[monthIndex]}
                     </span>
+                    {daysWithFichasCount > 0 && (
+                        <span className="text-[10px] font-medium text-[#B4B2A9]">
+                            {daysWithFichasCount}
+                        </span>
+                    )}
                 </div>
-                <div className="grid grid-cols-7 gap-x-[2px] justify-items-center mb-1">
+                <div className="grid grid-cols-7 gap-x-[2px] justify-items-center mb-[4px]">
                     {['D', 'L', 'M', 'X', 'J', 'V', 'S'].map((wd, i) => (
-                        <div key={i} className="w-6 text-center text-[10px] text-[#b4b2a9] font-medium">{wd}</div>
+                        <div key={i} className="w-full text-center text-[10px] text-[#B4B2A9] font-medium leading-none">{wd}</div>
                     ))}
                 </div>
-                <div className="grid grid-cols-7 gap-x-[2px] gap-y-[2px] justify-items-center">
+                <div className="grid grid-cols-7 gap-x-[2px] gap-y-[4px] justify-items-center content-start">
                     {cells}
                 </div>
             </div>
@@ -174,59 +193,81 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
     const activeFichasInYear = filteredFichas.filter(f => f.emision.startsWith(currentYear.toString())).length;
 
     return (
-        <div className="relative w-full bg-[#ffffff] border border-[#e8e6e0] rounded-[10px] overflow-hidden font-sans">
+        <div className="w-[787px] mx-auto bg-[#FAFAF8] border-[0.5px] border-[#E2E0D8] rounded-[12px] font-sans flex flex-col relative shrink-0">
             
             {/* Header / Controles */}
-            <div className="flex items-center justify-between p-5 border-b border-[#e8e6e0]">
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xl">📅</span>
-                        <div>
-                            <h2 className="text-base font-medium text-[#1a1a18] leading-tight">Calendario de créditos</h2>
-                            <p className="text-[11px] text-[#888780] font-medium mt-0.5">{activeFichasInYear} ficha{activeFichasInYear !== 1 ? 's' : ''} · {currentYear}</p>
-                        </div>
+            <div className="flex items-center justify-between p-[12px_20px] bg-white border-b-[0.5px] border-[#E2E0D8] rounded-t-[12px] shrink-0">
+                <div className="flex items-center gap-[10px]">
+                    <div className="w-[28px] h-[28px] bg-[#EEEDFE] rounded-[6px] flex items-center justify-center flex-shrink-0">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#534AB7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
                     </div>
-                    {/* Leyenda dots */}
-                    <div className="ml-8 hidden md:flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-[#E24B4A]"></span>
-                        <span className="w-2 h-2 rounded-full bg-[#EF9F27]"></span>
-                        <span className="w-2 h-2 rounded-full bg-[#378ADD]"></span>
-                        <span className="w-2 h-2 rounded-full bg-[#1D9E75]"></span>
+                    <div>
+                        <h2 className="text-[14px] font-[500] text-[#1A1B2E] leading-tight mb-[1px]">Calendario de créditos</h2>
+                        <p className="text-[11px] text-[#888780] leading-none">{activeFichasInYear} ficha{activeFichasInYear !== 1 ? 's' : ''}</p>
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-between w-[96px] h-[28px] border border-[#d3d1c7] rounded-[7px] bg-white overflow-hidden">
-                        <button onClick={() => changeYear(-1)} className="w-[26px] h-full flex items-center justify-center text-[#888780] hover:bg-[#f5f4f0] hover:text-[#1a1a18] transition-colors"><ChevronLeft className="w-3.5 h-3.5" /></button>
-                        <span className="w-[44px] text-center text-[12px] font-medium text-[#1a1a18]">{currentYear}</span>
-                        <button onClick={() => changeYear(1)} className="w-[26px] h-full flex items-center justify-center text-[#888780] hover:bg-[#f5f4f0] hover:text-[#1a1a18] transition-colors"><ChevronRight className="w-3.5 h-3.5" /></button>
+                <div className="flex items-center gap-[12px]">
+                    <div className="relative">
+                        <select
+                            value={selectedClientId}
+                            onChange={e => handleFiltroCliente(e.target.value)}
+                            className="h-[28px] px-[12px] rounded-[6px] border-[0.5px] border-[#E2E0D8] bg-white text-[12px] font-medium text-[#1A1B2E] focus:outline-none hover:bg-[#F9F9F9] transition-colors max-w-[150px] truncate appearance-none pr-[24px]"
+                        >
+                            <option value="all">Todos los clientes</option>
+                            {clientes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <div className="absolute right-[8px] top-1/2 -translate-y-1/2 pointer-events-none text-[#5F5E5A]">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                        </div>
                     </div>
 
-                    <select
-                        value={selectedClientId}
-                        onChange={e => handleFiltroCliente(e.target.value)}
-                        className="h-[28px] px-2 rounded-[7px] border border-[#d3d1c7] bg-white text-[12px] font-medium text-[#1a1a18] focus:outline-none hover:bg-[#f5f4f0] transition-colors max-w-[150px] truncate"
-                    >
-                        <option value="all">Todos los clientes</option>
-                        {clientes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                    <div className="flex items-center justify-between h-[28px] bg-[#F1EFE8] rounded-[6px] overflow-hidden">
+                        <button onClick={() => changeYear(-1)} className="w-[24px] h-full flex items-center justify-center text-[#5F5E5A] hover:bg-[#E8E6DF] transition-colors"><ChevronLeft className="w-[14px] h-[14px]" /></button>
+                        <span className="min-w-[40px] px-1 text-center text-[13px] font-[500] text-[#2C2C2A]">{currentYear}</span>
+                        <button onClick={() => changeYear(1)} className="w-[24px] h-full flex items-center justify-center text-[#5F5E5A] hover:bg-[#E8E6DF] transition-colors"><ChevronRight className="w-[14px] h-[14px]" /></button>
+                    </div>
                 </div>
             </div>
 
             {/* Grid 6x2 */}
             <style dangerouslySetInnerHTML={{__html: `
-                .mes { border-right: 0.5px solid #e8e6e0; border-bottom: 0.5px solid #e8e6e0; }
+                .mes { border-right: 0.5px solid #E2E0D8; border-bottom: 0.5px solid #E2E0D8; }
                 .mes:nth-child(6n)  { border-right: none; }
                 .mes:nth-child(n+7) { border-bottom: none; }
-                .mes.alt { background: #fafaf8; }
-                .mes:not(.alt) { background: #fff; }
             `}} />
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 w-full">
-                {Array.from({ length: 12 }).map((_, i) => (
-                    <div className={`mes ${i % 2 === 1 ? 'alt' : ''}`} key={i}>
-                        {renderMonthGrid(i)}
+                {Array.from({ length: 12 }).map((_, i) => renderMonthGrid(i))}
+            </div>
+
+            {/* Footer / Leyenda */}
+            <div className="flex items-center justify-between p-[8px_20px] bg-white border-t-[0.5px] border-[#E2E0D8] rounded-b-[12px] shrink-0">
+                <div className="flex items-center gap-[24px]">
+                    <div className="flex items-center gap-[6px]">
+                        <span className="w-[8px] h-[8px] rounded-full bg-[#1A1B2E]"></span>
+                        <span className="text-[11px] font-medium text-[#888780]">Hoy</span>
                     </div>
-                ))}
+                    <div className="flex items-center gap-[6px]">
+                        <span className="w-[8px] h-[8px] rounded-full bg-[#FAEEDA]"></span>
+                        <span className="text-[11px] font-medium text-[#888780]">Pendiente</span>
+                    </div>
+                    <div className="flex items-center gap-[6px]">
+                        <span className="w-[8px] h-[8px] rounded-full bg-[#FCEBEB]"></span>
+                        <span className="text-[11px] font-medium text-[#888780]">En mora</span>
+                    </div>
+                    <div className="flex items-center gap-[6px]">
+                        <span className="w-[8px] h-[8px] rounded-full bg-[#EAF3DE]"></span>
+                        <span className="text-[11px] font-medium text-[#888780]">Parcial / Pagado</span>
+                    </div>
+                </div>
+                <div className="text-[11px] font-medium text-[#B4B2A9] text-right">
+                    Hoy: {new Date().toLocaleDateString('es-VE', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
             </div>
 
             {/* PASO 3 — OVERLAY Y VENTANA FLOTANTE */}

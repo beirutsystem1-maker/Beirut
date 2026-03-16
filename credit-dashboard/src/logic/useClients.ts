@@ -308,8 +308,7 @@ export function useUpdateClient() {
                         rif: payload.rif,
                         phone: payload.phone,
                         email: payload.email,
-                        address: payload.address,
-                        updated_at: new Date().toISOString()
+                        address: payload.address
                     })
                     .eq('id', payload.id)
                     .select()

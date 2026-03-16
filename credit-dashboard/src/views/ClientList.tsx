@@ -513,12 +513,12 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         const todayDate = new Date();
         const totalPaid = relevantPayments.reduce((acc, p) => acc + (p.amountUsd || p.amount || 0), 0);
 
-        let msg = `🏢 *BEIRUT* · Estado de Cuenta\n`;
+        let msg = `\uD83C\uDFE2 *BEIRUT* · Estado de Cuenta\n`;
         msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `👤 *${client.name}*\n`;
-        msg += `📅 ${fmtLongDate(todayDate)}\n`;
+        msg += `\uD83D\uDC64 *${client.name}*\n`;
+        msg += `\uD83D\uDCC5 ${fmtLongDate(todayDate)}\n`;
         msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `🧾 *FACTURAS ACTIVAS*\n\n`;
+        msg += `\uD83E\uDDFE *FACTURAS ACTIVAS*\n\n`;
 
         // Sort ascending by due date
         const sortedInvoices = [...activeInvoices].sort((a, b) => parseLocalDate(a.dueDate).getTime() - parseLocalDate(b.dueDate).getTime());
@@ -536,7 +536,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
 
         if (relevantPayments.length > 0) {
             msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-            msg += `✅ *PAGOS RECIBIDOS*\n`;
+            msg += `\u2705 *PAGOS RECIBIDOS*\n`;
             relevantPayments.forEach(p => {
                 const pAmount = p.amountUsd || p.amount || 0;
                 const pDate = p.createdAt || p.payment_date || '';
@@ -546,25 +546,25 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         }
 
         msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `📊 *RESUMEN*\n`;
-        msg += `  💵 Total deuda:     $${fmtNum(deuda + totalPaid)}\n`;
-        if (totalPaid > 0) msg += `  ✅ Cancelado:       $${fmtNum(totalPaid)}\n`;
+        msg += `\uD83D\uDCCA *RESUMEN*\n`;
+        msg += `  \uD83D\uDCB5 Total deuda:     $${fmtNum(deuda + totalPaid)}\n`;
+        if (totalPaid > 0) msg += `  \u2705 Cancelado:       $${fmtNum(totalPaid)}\n`;
         
         if (deuda > 0) {
-            msg += `  🔴 *Saldo pendiente: $${fmtNum(deuda)}*\n\n`;
+            msg += `  \uD83D\uDD34 *Saldo pendiente: $${fmtNum(deuda)}*\n\n`;
         } else {
-            msg += `  🟢 *A su favor:     $${fmtNum(Math.abs(deuda))}*\n\n`;
+            msg += `  \uD83D\uDFE2 *A su favor:     $${fmtNum(Math.abs(deuda))}*\n\n`;
         }
 
         if (rateMode === 'bcv') {
             const bsBCV = Math.abs(deuda) * tasaBCV;
-            msg += `🏦 *En Bolívares (BCV ${fmtNum(tasaBCV)} Bs/$):*\n`;
+            msg += `\uD83C\uDFDB *En Bolívares (BCV ${fmtNum(tasaBCV)} Bs/$):*\n`;
             msg += `  ${deuda <= 0 ? 'A favor' : 'Debe'} → *Bs. ${fmtNum(bsBCV)}*\n`;
         }
 
         msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
         msg += `_Beirut · Sistema de Créditos_\n`;
-        msg += `_📆 Generado: ${fmtLongDate(todayDate)}_`;
+        msg += `_\uD83D\uDCC6 Generado: ${fmtLongDate(todayDate)}_`;
 
         const normalized = normalizePhone(client.phone);
         window.open(`https://wa.me/${normalized}?text=${encodeURIComponent(msg)}`, '_blank');

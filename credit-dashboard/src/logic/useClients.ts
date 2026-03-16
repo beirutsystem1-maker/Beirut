@@ -301,6 +301,7 @@ export function useUpdateClient() {
     return useMutation({
         mutationFn: async (payload: { id: string } & Partial<Omit<Client, 'id' | 'invoices'>>) => {
             if (USE_SUPABASE_DIRECT && supabase) {
+                console.log('Sending payload to Supabase:', payload);
                 const { data, error } = await supabase
                     .from('clients')
                     .update({
@@ -311,10 +312,13 @@ export function useUpdateClient() {
                         address: payload.address
                     })
                     .eq('id', payload.id)
-                    .select()
-                    .single();
-                if (error) throw error;
-                return data;
+                    .select(); // Changed from single() to avoid throwing on 0 rows
+                
+                console.log('Supabase update response:', { data, error });
+                if (error) throw new Error(`Supabase Error: ${error.message}`);
+                if (!data || data.length === 0) throw new Error(`Client ID ${payload.id} not found in DB`);
+                
+                return data[0];
             } else {
                 const res = await fetch(`${SERVER_URL}/clients/${payload.id}`, {
                     method: 'PUT',
@@ -329,11 +333,19 @@ export function useUpdateClient() {
                         show_surcharge_debt: payload.showSurchargeDebt !== undefined ? (payload.showSurchargeDebt ? 1 : 0) : undefined,
                     })
                 });
-                if (!res.ok) throw new Error('Error updating client');
+                if (!res.ok) {
+                    const errBody = await res.json().catch(() => ({}));
+                    throw new Error(errBody.error || 'Error updating client');
+                }
                 return await res.json();
             }
         },
+        onError: (err) => {
+            console.error('Mutation useUpdateClient failed:', err);
+            // Optionally, we could show an alert or toast here
+        },
         onSuccess: (_, variables) => {
+            console.log('Update successful, invalidating queries...');
             queryClient.invalidateQueries({ queryKey: ['clients'] });
             queryClient.invalidateQueries({ queryKey: ['client', 'full', variables.id] });
         },

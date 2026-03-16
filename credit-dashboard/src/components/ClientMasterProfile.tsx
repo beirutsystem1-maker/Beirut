@@ -929,6 +929,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
         address: client?.address || ''
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [updateError, setUpdateError] = useState<string | null>(null);
 
     // ── Sync editData whenever the active client changes ─────────────────────
     useEffect(() => {
@@ -1109,12 +1110,14 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                     <button 
                                         onClick={async () => {
                                             setIsSaving(true);
+                                            setUpdateError(null);
                                             try {
                                                 await updateClient({ id: client.id, ...editData });
                                                 setIsEditing(false);
                                                 onClose();
-                                            } catch (error) {
+                                            } catch (error: any) {
                                                 console.error('Failed to update client:', error);
+                                                setUpdateError(error.message || 'Error al actualizar el cliente');
                                             } finally {
                                                 setIsSaving(false);
                                             }
@@ -1152,6 +1155,11 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                             onChange={e => setEditData({ ...editData, address: e.target.value })}
                                             className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-full mt-1"
                                         />
+                                        {updateError && (
+                                            <p className="w-full text-rose-500 font-medium mt-2 bg-rose-50/50 px-2 py-1 rounded border border-rose-100/50">
+                                                {updateError}
+                                            </p>
+                                        )}
                                     </>
                                 ) : (
                                     <>

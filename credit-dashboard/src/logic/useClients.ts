@@ -40,8 +40,8 @@ async function fetchFromSupabase() {
         showBaseDebt: row.show_base_debt === undefined ? true : Boolean(row.show_base_debt),
         showSurchargeDebt: row.show_surcharge_debt === undefined ? true : Boolean(row.show_surcharge_debt),
         invoices: (row.invoices || []).map((inv: any) => ({
-            id: inv.id,
-            valeryNoteId: inv.valery_note_id || '',
+            id: inv.id, // Supabase UUID
+            valeryNoteId: inv.valery_note_id || '', // Business ID (e.g., "0000020046")
             issueDate: inv.issue_date || '',
             dueDate: inv.due_date || '',
             totalAmount: Number(inv.total_amount) || 0,
@@ -454,15 +454,30 @@ export function useRegisterPayment() {
             const surchargePercent = payload.surchargePercent ?? 0;
 
             if (USE_SUPABASE_DIRECT && supabase) {
-                // In direct mode (Supabase), invoiceId is now ALWAYS a UUID thanks to the refactor
+                // Resolution step: find the real UUID using valery_note_id if it's not already a UUID
+                let resolvedInvoiceId = payload.invoiceId;
+                
+                // If it looks like a Valery Note ID (contains no hyphens and has leading zeros), resolve it
+                if (!resolvedInvoiceId.includes('-')) {
+                    const { data: realInvoice } = await supabase
+                        .from('invoices')
+                        .select('id')
+                        .eq('valery_note_id', payload.invoiceId)
+                        .single();
+                    
+                    if (realInvoice) {
+                        resolvedInvoiceId = realInvoice.id;
+                    }
+                }
+
                 const { data: inv, error: fetchError } = await supabase
                     .from('invoices')
                     .select('id, balance, total_amount, due_date')
-                    .eq('id', payload.invoiceId)
+                    .eq('id', resolvedInvoiceId)
                     .single();
                 
                 if (fetchError) throw fetchError;
-                if (!inv) throw new Error(`Factura ${payload.invoiceId} no encontrada`);
+                if (!inv) throw new Error(`Factura ${resolvedInvoiceId} no encontrada`);
 
                 const newBalance = Math.max(0, inv.balance - payload.amount);
                 const newStatus = newBalance <= 0 ? 'pagado' : (new Date(inv.due_date) < new Date() ? 'en mora' : 'pendiente');
@@ -471,7 +486,7 @@ export function useRegisterPayment() {
                     .from('payments')
                     .insert({
                         id: crypto.randomUUID(),
-                        invoice_id: payload.invoiceId,
+                        invoice_id: resolvedInvoiceId,
                         client_id: payload.clientId,
                         amount: payload.amount,
                         method: paymentMethod,
@@ -484,7 +499,7 @@ export function useRegisterPayment() {
                 const { error: updError } = await supabase
                     .from('invoices')
                     .update({ balance: newBalance, status: newStatus, updated_at: new Date().toISOString() })
-                    .eq('id', payload.invoiceId);
+                    .eq('id', resolvedInvoiceId);
                 
                 if (updError) throw updError;
                 return;

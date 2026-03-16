@@ -2,7 +2,7 @@ import {
     X, FileText, AlertCircle, Eye, CheckCircle2,
     Loader2, RefreshCw, ChevronDown, ChevronUp, Lock, Unlock, EyeOff, Edit2, Save, Trash2, DollarSign, CheckCircle
 } from 'lucide-react';
-import { useUpdateInvoiceProducts, useDeleteInvoice } from '../logic/useClients';
+import { useUpdateInvoiceProducts, useDeleteInvoice, useUpdateInvoiceDueDate } from '../logic/useClients';
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { Client, Invoice } from '../logic/ClientContext';
@@ -126,6 +126,16 @@ function InvoiceDetailModal({
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
 
+    // Estado para la fecha de vencimiento editable
+    const [editedDueDate, setEditedDueDate] = useState(() => {
+        // Asegurar formato YYYY-MM-DD para el input type="date"
+        try {
+            return invoice.dueDate ? new Date(invoice.dueDate).toISOString().split('T')[0] : '';
+        } catch(e) {
+            return invoice.dueDate || '';
+        }
+    });
+
     // Paginación
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
@@ -138,6 +148,7 @@ function InvoiceDetailModal({
     }, [editedProducts.length, currentPage, totalPages]);
 
     const updateProducts = useUpdateInvoiceProducts();
+    const updateDueDate = useUpdateInvoiceDueDate();
     const deleteInvoice = useDeleteInvoice();
 
     // === LÓGICA DE CÁLCULO V4 (Math.round en cada paso) ===
@@ -187,6 +198,16 @@ function InvoiceDetailModal({
                 products: productsToSave,
                 apply_iva: hasOriginalIva,
             });
+
+            // ACCIÓN 1.5 - Actualizar fecha de vencimiento si cambió
+            const currentIsoDate = new Date(invoice.dueDate).toISOString().split('T')[0];
+            if (editedDueDate && editedDueDate !== currentIsoDate) {
+                 await updateDueDate.mutateAsync({
+                     clientId: clientId,
+                     invoiceId: invoice.id,
+                     dueDate: editedDueDate
+                 });
+            }
 
             // ACCIÓN 2 — Actualizar la Ficha del Cliente:
             // ANTES: total_anterior = currentSavedTotal (capturado antes de este guardado)
@@ -273,10 +294,29 @@ function InvoiceDetailModal({
                         </div>
                     </div>
                     
-                    <p className="text-[11px] font-medium text-gray-400 mt-1">
-                        Emisión: {formatDate(invoice.issueDate)} &nbsp;·&nbsp; 
-                        Vence: <span className={new Date(invoice.dueDate) < new Date() && invoice.status !== 'pagado' ? 'text-red-500 font-bold' : 'text-gray-500 font-bold'}>{formatDate(invoice.dueDate)}</span>
-                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                        <p className="text-[11px] font-medium text-gray-400">
+                            Emisión: {formatDate(invoice.issueDate)} &nbsp;·&nbsp;
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-medium text-gray-400">Vence:</span>
+                            {invoice.status !== 'pagado' ? (
+                                <input 
+                                    type="date" 
+                                    value={editedDueDate}
+                                    onChange={(e) => {
+                                        setEditedDueDate(e.target.value);
+                                        setSaveSuccess(false);
+                                    }}
+                                    className={`text-[12px] font-bold px-2 py-0.5 rounded cursor-pointer transition-colors border-none outline-none ring-1 ring-transparent focus:ring-indigo-300 hover:bg-gray-100
+                                        ${(editedDueDate && new Date(editedDueDate) < new Date()) ? 'text-red-500 hover:bg-red-50' : 'text-gray-700 hover:bg-gray-100'}
+                                    `}
+                                />
+                            ) : (
+                                <span className="text-[12px] font-bold text-gray-500">{formatDate(invoice.dueDate)}</span>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* ZONA 2: Body 2 columnas — flex-1 min-h-0 */}
@@ -489,7 +529,7 @@ function InvoiceDetailModal({
                             </div>
                             <h3 className="font-bold text-lg mb-2 text-gray-900">Confirmar Guardado</h3>
                             <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-                                Las cantidades y precios se actualizarán en la base de datos con los nuevos montos redondeados.
+                                Se actualizarán el desglose de productos y la fecha de vencimiento en la base de datos.
                             </p>
                             <div className="flex gap-3 w-full">
                                 <button onClick={() => setShowConfirm(false)} disabled={isSaving} className="flex-1 h-10 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 text-sm">

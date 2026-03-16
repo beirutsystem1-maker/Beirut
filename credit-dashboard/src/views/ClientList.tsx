@@ -371,7 +371,16 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
     const [showModal, setShowModal] = useState(false);
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
     const [filterStatus, setFilterStatus] = useState<'all' | 'pagado' | 'pendiente' | 'en mora'>('all');
-    const { rate: tasaBCV } = useBCV();
+    const { rate: tasaBCV, parallelRate } = useBCV();
+
+    interface RateConfirmData {
+        client: Client;
+        deudaBCV: number;
+        deudaParalela: number;
+        activeInvoices: Invoice[];
+        relevantPayments: any[];
+    }
+    const [rateConfirmData, setRateConfirmData] = useState<RateConfirmData | null>(null);
     
     // Always derive the actual selected client from the freshest `clients` array
     const selectedClient = useMemo(() => {
@@ -462,9 +471,6 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
             return;
         }
 
-        // Sort ascending by due date
-        activeInvoices.sort((a, b) => parseLocalDate(a.dueDate).getTime() - parseLocalDate(b.dueDate).getTime());
-
         // Fetch payments for this client
         let allPayments: any[] = [];
         try {
@@ -479,12 +485,32 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         const activeInvoiceIds = new Set(activeInvoices.map(inv => inv.id));
         const relevantPayments = allPayments.filter(p => activeInvoiceIds.has(p.invoiceId || p.invoice_id));
 
+        const balanceBase = activeInvoices.reduce((acc, inv) => acc + inv.balance, 0);
+        
+        // BCV mode used in UI usually includes a surcharge
+        const surchargeStr = localStorage.getItem('beirutSurchargePercent');
+        const surchargePercent = surchargeStr !== null && surchargeStr !== '' ? parseFloat(surchargeStr) : 30;
+        const factor = 1 + surchargePercent / 100;
+
+        setRateConfirmData({
+            client,
+            deudaParalela: balanceBase,
+            deudaBCV: balanceBase * factor,
+            activeInvoices,
+            relevantPayments
+        });
+    };
+
+    const sendWhatsApp = (rateMode: 'bcv' | 'paralela') => {
+        if (!rateConfirmData) return;
+        const { client, deudaBCV, deudaParalela, activeInvoices, relevantPayments } = rateConfirmData;
+
+        const deuda = rateMode === 'bcv' ? deudaBCV : deudaParalela;
         const fmtNum = (n: number) => new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
         const fmtDate = (d: string) => parseLocalDate(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short' });
         const fmtLongDate = (d: Date) => d.toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' });
 
         const todayDate = new Date();
-        const balance = activeInvoices.reduce((acc, inv) => acc + inv.balance, 0);
         const totalPaid = relevantPayments.reduce((acc, p) => acc + (p.amountUsd || p.amount || 0), 0);
 
         let msg = `🏢 *BEIRUT* · Estado de Cuenta\n`;
@@ -494,9 +520,11 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
         msg += `🧾 *FACTURAS ACTIVAS*\n\n`;
 
-        activeInvoices.forEach(inv => {
+        // Sort ascending by due date
+        const sortedInvoices = [...activeInvoices].sort((a, b) => parseLocalDate(a.dueDate).getTime() - parseLocalDate(b.dueDate).getTime());
+
+        sortedInvoices.forEach(inv => {
             const statusLabel = inv.status === 'en mora' ? '_En mora_' : '_Pendiente_';
-            // Suponemos que mostramos el primer producto o un resumen si hay varios
             const mainProd = inv.products?.[0];
             const prodDesc = mainProd ? `${mainProd.description}` : 'Productos varios';
             const prodQty = mainProd ? mainProd.quantity : 1;
@@ -519,18 +547,21 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
 
         msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
         msg += `📊 *RESUMEN*\n`;
-        msg += `  💵 Total deuda:     $${fmtNum(balance + totalPaid)}\n`;
+        msg += `  💵 Total deuda:     $${fmtNum(deuda + totalPaid)}\n`;
         if (totalPaid > 0) msg += `  ✅ Cancelado:       $${fmtNum(totalPaid)}\n`;
         
-        if (balance > 0) {
-            msg += `  🔴 *Saldo pendiente: $${fmtNum(balance)}*\n\n`;
+        if (deuda > 0) {
+            msg += `  🔴 *Saldo pendiente: $${fmtNum(deuda)}*\n\n`;
         } else {
-            msg += `  🟢 *A su favor:     $${fmtNum(Math.abs(balance))}*\n\n`;
+            msg += `  🟢 *A su favor:     $${fmtNum(Math.abs(deuda))}*\n\n`;
         }
 
-        const bsBCV = Math.abs(balance) * tasaBCV;
-        msg += `🏦 *En Bolívares (BCV ${fmtNum(tasaBCV)} Bs/$):*\n`;
-        msg += `  ${balance <= 0 ? 'A favor' : 'Debe'} → *Bs. ${fmtNum(bsBCV)}*\n`;
+        if (rateMode === 'bcv') {
+            const bsBCV = Math.abs(deuda) * tasaBCV;
+            msg += `🏦 *En Bolívares (BCV ${fmtNum(tasaBCV)} Bs/$):*\n`;
+            msg += `  ${deuda <= 0 ? 'A favor' : 'Debe'} → *Bs. ${fmtNum(bsBCV)}*\n`;
+        }
+
         msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
         msg += `_Beirut · Sistema de Créditos_\n`;
         msg += `_📆 Generado: ${fmtLongDate(todayDate)}_`;
@@ -800,6 +831,58 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                 onClose={() => setSelectedClientId(null)}
                 onViewChange={onViewChange}
             />
+
+            {/* Rate Selection Modal for WhatsApp */}
+            {rateConfirmData && (
+                <div style={{
+                    position: 'fixed', inset: 0, 
+                    backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+                }}>
+                    <div style={{
+                        background: '#FFF', borderRadius: 16, padding: 24, width: 320,
+                        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)'
+                    }}>
+                        <p style={{ fontSize: 13, fontWeight: 500, color: '#1A1B2E', marginBottom: 16 }}>
+                            ¿Qué monto enviar al cliente?
+                        </p>
+
+                        {/* BCV — monto amarillo */}
+                        <button onClick={() => sendWhatsApp('bcv')}
+                            style={{
+                                background: '#FAEEDA', color: '#854F0B', border: '0.5px solid #BA7517',
+                                borderRadius: 8, padding: '10px 14px', width: '100%', marginBottom: 8, cursor: 'pointer',
+                                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left'
+                            }}>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>Tasa BCV · ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(rateConfirmData.deudaBCV)}</div>
+                            <div style={{ fontSize: 11, marginTop: 2, color: '#BA7517' }}>
+                                Incluye equivalente en Bs. {new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(tasaBCV * rateConfirmData.deudaBCV)}
+                            </div>
+                        </button>
+
+                        {/* Paralela — monto negro, solo USD */}
+                        <button onClick={() => sendWhatsApp('paralela')}
+                            style={{
+                                background: '#F1EFE8', color: '#2C2C2A', border: '0.5px solid #888780',
+                                borderRadius: 8, padding: '10px 14px', width: '100%', marginBottom: 12, cursor: 'pointer',
+                                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left'
+                            }}>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>Tasa Paralela · ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(rateConfirmData.deudaParalela)}</div>
+                            <div style={{ fontSize: 11, marginTop: 2, color: '#5F5E5A' }}>
+                                Solo muestra deuda en USD · sin Bs
+                            </div>
+                        </button>
+
+                        <button onClick={() => setRateConfirmData(null)}
+                            style={{
+                                background: 'transparent', border: 'none', color: '#888780',
+                                fontSize: 12, cursor: 'pointer', width: '100%'
+                            }}>
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

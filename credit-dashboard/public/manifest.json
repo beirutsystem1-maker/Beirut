@@ -1,0 +1,17 @@
+{
+  "name": "Beirut Credit Dashboard",
+  "short_name": "Beirut",
+  "description": "Sistema de gestión de créditos y cobranzas Beirut",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#635BFF",
+  "icons": [
+    {
+      "src": "/beirut_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

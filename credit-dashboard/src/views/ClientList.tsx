@@ -371,7 +371,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
     const [showModal, setShowModal] = useState(false);
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
     const [filterStatus, setFilterStatus] = useState<'all' | 'pagado' | 'pendiente' | 'en mora'>('all');
-    const { rate: tasaBCV, parallelRate } = useBCV();
+    const { rate: tasaBCV } = useBCV();
 
     interface RateConfirmData {
         client: Client;

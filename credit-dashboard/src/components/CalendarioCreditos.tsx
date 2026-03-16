@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 export interface FichaCalendarioDato {
     id: string;
@@ -271,7 +272,7 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
             </div>
 
             {/* PASO 3 — OVERLAY Y VENTANA FLOTANTE */}
-            {diaSeleccionado && (
+            {diaSeleccionado && createPortal(
                 <div 
                     className="fixed inset-0 z-[9999] bg-[rgba(0,0,0,0.35)] flex items-center justify-center p-[1rem] max-sm:items-end animate-fade-in"
                     onClick={(e) => {
@@ -292,7 +293,8 @@ export function CalendarioCreditos({ fichas, clientes, factorRecargo, onRegistra
                             onVerHistorial(fichaId, clienteId);
                         }}
                     />
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

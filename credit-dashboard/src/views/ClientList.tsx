@@ -5,7 +5,8 @@ import {
     CheckCircle2, AlertCircle, MapPin
 } from 'lucide-react';
 import { useClients, calculateClientDebt, calculateClientStatus } from '../logic/ClientContext';
-import { parseLocalDate, isOverdue, toLocalDateString } from '../utils/dates';
+import { SERVER_URL } from '../logic/useClients';
+import { parseLocalDate, isOverdue } from '../utils/dates';
 import type { Client, Invoice } from '../logic/ClientContext';
 import { ClientMasterProfile } from '../components/ClientMasterProfile';
 const STATUS_CONFIG = {
@@ -23,6 +24,7 @@ function formatDate(d: string) {
 
 import { CalendarioCreditos } from '../components/CalendarioCreditos';
 import type { FichaCalendarioDato } from '../components/CalendarioCreditos';
+import { useBCV } from '../hooks/BCVContext';
 
 function Avatar({ name }: { name: string }) {
     const initials = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
@@ -368,7 +370,8 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
     const { clients, isLoading, addClient } = useClients();
     const [showModal, setShowModal] = useState(false);
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [filterStatus, setFilterStatus] = useState<'all' | 'pagado' | 'pendiente' | 'en mora'>('all');
+    const { rate: tasaBCV } = useBCV();
     
     // Always derive the actual selected client from the freshest `clients` array
     const selectedClient = useMemo(() => {
@@ -437,88 +440,103 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         if (onViewChange) onViewChange('historial');
     };
 
+    const normalizePhone = (phone: string) => {
+        let cleaned = phone.replace(/\D/g, '');
+        // Si empieza con 04 (Venezuela local), cambiar 0 por 58
+        if (cleaned.startsWith('04')) {
+            cleaned = '58' + cleaned.slice(1);
+        }
+        return cleaned;
+    };
 
-    const openWhatsApp = (client: Client) => {
+    const openWhatsApp = async (client: Client) => {
         if (!client.phone || client.phone.trim() === '' || client.phone === '—') {
             alert(`El cliente ${client.name} no tiene un numero de WhatsApp registrado.`);
             return;
         }
 
-        const pendingInvoices = (client.invoices || []).filter((i: Invoice) => i.balance > 0);
-        const activeDebt = calculateClientDebt(client);
-
-        if (pendingInvoices.length === 0) {
-            const msg = `*BEIRUT CRM*\n\nHola *${client.name}*, te agradecemos por mantener tu cuenta al dia. Saludos!`;
-            window.open(`https://api.whatsapp.com/send?phone=${client.phone.replace('+', '')}&text=${encodeURIComponent(msg)}`, '_blank');
+        const activeInvoices = (client.invoices || []).filter((i: Invoice) => i.status === 'pendiente' || i.status === 'en mora');
+        
+        if (activeInvoices.length === 0) {
+            alert("Este cliente no tiene deudas pendientes");
             return;
         }
 
-        // Sort ascending by due date (oldest / most overdue first)
-        pendingInvoices.sort((a: Invoice, b: Invoice) => parseLocalDate(a.dueDate).getTime() - parseLocalDate(b.dueDate).getTime());
+        // Sort ascending by due date
+        activeInvoices.sort((a, b) => parseLocalDate(a.dueDate).getTime() - parseLocalDate(b.dueDate).getTime());
 
-        const surchargePercent = (() => {
-            const s = localStorage.getItem('beirutSurchargePercent');
-            return s !== null && s !== '' ? parseFloat(s) : 30;
-        })();
-
-        const factor = 1 + surchargePercent / 100;
-        
-        const showBaseDebt = client.showBaseDebt ?? (localStorage.getItem('beirutShowBaseDebt') !== 'false');
-        const showSurchargeDebt = client.showSurchargeDebt ?? (localStorage.getItem('beirutShowSurchargeDebt') !== 'false');
-
-        // Receipt-style: dot-leader lines padded to fixed width
-        const fichasLines = pendingInvoices.map((inv: Invoice) => {
-            const montoConRecargo = inv.balance * factor;
-            const id = inv.id.length > 14 ? inv.id.slice(-14) : inv.id;
-            
-            let amountVal = inv.balance;
-            if (showSurchargeDebt) {
-                amountVal = showBaseDebt ? montoConRecargo : montoConRecargo;
-            } else if (showBaseDebt) {
-                amountVal = inv.balance;
+        // Fetch payments for this client
+        let allPayments: any[] = [];
+        try {
+            const res = await fetch(`${SERVER_URL}/clients/${client.id}/transactions`);
+            if (res.ok) {
+                allPayments = await res.json();
             }
-            
-            const monto = `$${amountVal.toFixed(2)}`;
-            const dots = '.'.repeat(Math.max(2, 22 - id.length - monto.length));
-            return `  ${id}${dots}${monto}`;
-        }).join('\n');
-
-        const montoBase = activeDebt;
-        const totalConRecargo = montoBase * factor;
-        const todayStr = toLocalDateString(new Date());
-        const today = parseLocalDate(todayStr).toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
-
-        let msg =
-            `*BEIRUT \u00b7 ESTADO DE CUENTA*\n` +
-            `_${today}_\n` +
-            `_${client.name}_\n` +
-            `\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\n`;
-            
-        if (showBaseDebt || showSurchargeDebt) {
-            msg += fichasLines + `\n` +
-            `\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\n`;
-        } else {
-            msg += `*FACTURAS ACTIVAS OCULTAS*\n` +
-            `\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\n`;
+        } catch (e) {
+            console.error("Error fetching payments for WA", e);
         }
 
-        if (showBaseDebt && showSurchargeDebt) {
-            msg += `  TOTAL     *$${totalConRecargo.toFixed(2)}*\n` +
-            `\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\n` +
-            `  Monto:              *$${totalConRecargo.toFixed(2)}*\n` +
-            `  Monto con descuento: *$${montoBase.toFixed(2)}*\n`;
-        } else if (showBaseDebt && !showSurchargeDebt) {
-            msg += `  TOTAL     *$${montoBase.toFixed(2)}*\n`;
-        } else if (!showBaseDebt && showSurchargeDebt) {
-            msg += `  TOTAL     *$${totalConRecargo.toFixed(2)}*\n`;
-        } else {
-            msg += `  TOTAL     *$${montoBase.toFixed(2)}*\n`;
+        const activeInvoiceIds = new Set(activeInvoices.map(inv => inv.id));
+        const relevantPayments = allPayments.filter(p => activeInvoiceIds.has(p.invoiceId || p.invoice_id));
+
+        const fmtNum = (n: number) => new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+        const fmtDate = (d: string) => parseLocalDate(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short' });
+        const fmtLongDate = (d: Date) => d.toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' });
+
+        const todayDate = new Date();
+        const balance = activeInvoices.reduce((acc, inv) => acc + inv.balance, 0);
+        const totalPaid = relevantPayments.reduce((acc, p) => acc + (p.amountUsd || p.amount || 0), 0);
+
+        let msg = `🏢 *BEIRUT* · Estado de Cuenta\n`;
+        msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        msg += `👤 *${client.name}*\n`;
+        msg += `📅 ${fmtLongDate(todayDate)}\n`;
+        msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        msg += `🧾 *FACTURAS ACTIVAS*\n\n`;
+
+        activeInvoices.forEach(inv => {
+            const statusLabel = inv.status === 'en mora' ? '_En mora_' : '_Pendiente_';
+            // Suponemos que mostramos el primer producto o un resumen si hay varios
+            const mainProd = inv.products?.[0];
+            const prodDesc = mainProd ? `${mainProd.description}` : 'Productos varios';
+            const prodQty = mainProd ? mainProd.quantity : 1;
+            
+            msg += `*#${inv.valeryNoteId}* · ${statusLabel}\n`;
+            msg += `  • ${prodQty}x ${prodDesc} ........ $${fmtNum(inv.totalAmount)}\n`;
+            msg += `  └─ Subtotal: *$${fmtNum(inv.totalAmount)}*\n\n`;
+        });
+
+        if (relevantPayments.length > 0) {
+            msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+            msg += `✅ *PAGOS RECIBIDOS*\n`;
+            relevantPayments.forEach(p => {
+                const pAmount = p.amountUsd || p.amount || 0;
+                const pDate = p.createdAt || p.payment_date || '';
+                msg += `  • ${pDate ? fmtDate(pDate.split('T')[0]) : '--'} · ${p.paymentMethod || p.method || 'Pago'} .... $${fmtNum(pAmount)}\n`;
+            });
+            msg += `  └─ Total pagado: *$${fmtNum(totalPaid)}*\n\n`;
         }
 
-        msg += `\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\u2015\n` +
-            `_Beirut CRM_`;
+        msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        msg += `📊 *RESUMEN*\n`;
+        msg += `  💵 Total deuda:     $${fmtNum(balance + totalPaid)}\n`;
+        if (totalPaid > 0) msg += `  ✅ Cancelado:       $${fmtNum(totalPaid)}\n`;
+        
+        if (balance > 0) {
+            msg += `  🔴 *Saldo pendiente: $${fmtNum(balance)}*\n\n`;
+        } else {
+            msg += `  🟢 *A su favor:     $${fmtNum(Math.abs(balance))}*\n\n`;
+        }
 
-        window.open(`https://api.whatsapp.com/send?phone=${client.phone.replace('+', '')}&text=${encodeURIComponent(msg)}`, '_blank');
+        const bsBCV = Math.abs(balance) * tasaBCV;
+        msg += `🏦 *En Bolívares (BCV ${fmtNum(tasaBCV)} Bs/$):*\n`;
+        msg += `  ${balance <= 0 ? 'A favor' : 'Debe'} → *Bs. ${fmtNum(bsBCV)}*\n`;
+        msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        msg += `_Beirut · Sistema de Créditos_\n`;
+        msg += `_📆 Generado: ${fmtLongDate(todayDate)}_`;
+
+        const normalized = normalizePhone(client.phone);
+        window.open(`https://wa.me/${normalized}?text=${encodeURIComponent(msg)}`, '_blank');
     };
 
     const handleSaveClient = (form: NewClientForm) => {
@@ -565,7 +583,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                 ].map(s => (
                     <button
                         key={s.id}
-                        onClick={() => setFilterStatus(s.id)}
+                        onClick={() => setFilterStatus(s.id as any)}
                         className={`border rounded-xl px-4 py-2.5 flex items-center gap-2 shadow-sm transition-all focus:outline-none ${filterStatus === s.id ? `ring-2 ${s.ring} border-transparent bg-background` : `border-border hover:-translate-y-0.5 hover:shadow-md ${s.bg}`}`}
                     >
                         <span className={`text-lg font-bold ${s.color}`}>{s.value}</span>

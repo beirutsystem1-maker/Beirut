@@ -6,9 +6,9 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-// Determine if we should use Supabase directly (Production/Vercel) or Local Server
-const IS_PROD = import.meta.env.PROD || window.location.hostname !== 'localhost';
-const USE_SUPABASE_DIRECT = IS_PROD && !!supabase;
+// Always use Supabase directly when credentials are available (local or production)
+const USE_SUPABASE_DIRECT = !!supabase;
+
 
 export const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 

@@ -416,7 +416,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                     id: inv.id,
                     clienteId: client.id,
                     clienteNombre: client.name,
-                    emision: formatLocalISO(inv.issueDate),
+                    emision: formatLocalISO(inv.dueDate),
                     vencimiento: formatLocalISO(inv.dueDate),
                     estado,
                     original: totalOriginal,

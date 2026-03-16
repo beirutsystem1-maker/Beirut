@@ -18,7 +18,7 @@ interface ClientContextType {
         iva?: number;
         products?: any[];
     }) => Promise<void>;
-    registerPaymentOnInvoice: (clientId: string, invoiceId: string, amount: number) => Promise<void>;
+    registerPaymentOnInvoice: (clientId: string, invoiceId: string, amount: number, method?: string, exchangeRate?: number, surchargePercent?: number) => Promise<void>;
     refetchClients: () => void;
 }
 
@@ -54,11 +54,14 @@ export function ClientProvider({ children }: { children: ReactNode }) {
         await appendInvoiceMutation.mutateAsync(payload);
     };
 
-    const registerPaymentOnInvoice = async (clientId: string, invoiceId: string, amount: number) => {
+    const registerPaymentOnInvoice = async (clientId: string, invoiceId: string, amount: number, method?: string, exchangeRate?: number, surchargePercent?: number) => {
         await registerPaymentMutation.mutateAsync({
             clientId,
             invoiceId,
-            amount
+            amount,
+            method,
+            exchangeRate,
+            surchargePercent
         });
     };
 

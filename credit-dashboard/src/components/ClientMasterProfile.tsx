@@ -588,7 +588,8 @@ interface GlobalPaymentModalProps {
     totalDebt: number;
     onClose: () => void;
     onPaymentsConfirmed: (distributions: { invoiceId: string; amount: number }[]) => void;
-    registerPayment: (clientId: string, invoiceId: string, amountUsd: number) => Promise<void>;
+    registerPayment: (clientId: string, invoiceId: string, amountUsd: number, method?: string, exchangeRate?: number, surchargePercent?: number) => Promise<void>;
+
 }
 
 function GlobalPaymentModal({ client, totalDebt, onClose, onPaymentsConfirmed, registerPayment }: GlobalPaymentModalProps) {
@@ -647,9 +648,13 @@ function GlobalPaymentModal({ client, totalDebt, onClose, onPaymentsConfirmed, r
         setIsProcessing(true);
         setError(null);
         const dist = buildDistribution(descuento);
+        // Determine method label and exchange rate for Supabase
+        const paymentMethodLabel = method === 'usd' ? 'Efectivo/Zelle' : 'Bolívares BDV';
+        const effectiveExchangeRate = method === 'ves' ? TASA_BCV : 1;
+        const effectiveSurchargePct = method === 'ves' ? recargoBCV * 100 : 0;
         try {
             for (const { invoiceId, amount: amt } of dist) {
-                await registerPayment(client.id, invoiceId, amt);
+                await registerPayment(client.id, invoiceId, amt, paymentMethodLabel, effectiveExchangeRate, effectiveSurchargePct);
             }
             onPaymentsConfirmed(dist);
             const msg = method === 'usd'
@@ -920,7 +925,8 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
         name: client?.name || '',
         rif: client?.rif || '',
         phone: client?.phone || '',
-        email: client?.email || ''
+        email: client?.email || '',
+        address: client?.address || ''
     });
     const [isSaving, setIsSaving] = useState(false);
 
@@ -931,7 +937,8 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                 name: client.name || '',
                 rif: client.rif || '',
                 phone: client.phone || '',
-                email: client.email || ''
+                email: client.email || '',
+                address: client.address || ''
             });
             setIsEditing(false); // always exit edit mode when switching clients
         }
@@ -1137,6 +1144,13 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                             value={editData.email}
                                             onChange={e => setEditData({ ...editData, email: e.target.value })}
                                             className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-48"
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Dirección"
+                                            value={editData.address}
+                                            onChange={e => setEditData({ ...editData, address: e.target.value })}
+                                            className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-full mt-1"
                                         />
                                     </>
                                 ) : (

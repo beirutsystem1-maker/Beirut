@@ -241,8 +241,20 @@ function insertClient(data) {
 function upsertClient(client, fromSupabase = false) {
   const now = getNow();
   run(
-    `INSERT OR REPLACE INTO clients (id, name, rif, phone, email, is_active, notes, created_at, updated_at, synced, deleted, show_base_debt, show_surcharge_debt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO clients (id, name, rif, phone, email, is_active, notes, created_at, updated_at, synced, deleted, show_base_debt, show_surcharge_debt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name,
+       rif = excluded.rif,
+       phone = excluded.phone,
+       email = excluded.email,
+       is_active = excluded.is_active,
+       notes = excluded.notes,
+       updated_at = excluded.updated_at,
+       synced = excluded.synced,
+       deleted = excluded.deleted,
+       show_base_debt = excluded.show_base_debt,
+       show_surcharge_debt = excluded.show_surcharge_debt`,
     [
       client.id, client.name, client.rif || null, client.phone || null,
       client.email || null, client.is_active ? 1 : 0, client.notes || null,

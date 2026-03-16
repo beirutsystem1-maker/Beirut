@@ -36,7 +36,7 @@ async function fetchFromSupabase() {
         rif: row.rif || '',
         phone: row.phone || '',
         email: row.email || '',
-        address: row.notes || '',
+        address: row.address || '',
         showBaseDebt: row.show_base_debt === undefined ? true : Boolean(row.show_base_debt),
         showSurchargeDebt: row.show_surcharge_debt === undefined ? true : Boolean(row.show_surcharge_debt),
         invoices: (row.invoices || []).map((inv: any) => ({
@@ -429,19 +429,26 @@ export function useRegisterPayment() {
             clientId: string;
             invoiceId: string;
             amount: number;
+            method?: string;
+            exchangeRate?: number;
+            surchargePercent?: number;
         }) => {
+            const paymentMethod = payload.method || 'App Dashboard';
+            const exchangeRate = payload.exchangeRate ?? 1;
+            const surchargePercent = payload.surchargePercent ?? 0;
+
             if (USE_SUPABASE_DIRECT && supabase) {
                 // In direct mode, we need to:
                 // 1. Get current invoice balance
                 const { data: inv, error: fetchError } = await supabase
                     .from('invoices')
-                    .select('balance, total_amount')
+                    .select('balance, total_amount, due_date')
                     .eq('id', payload.invoiceId)
                     .single();
                 if (fetchError) throw fetchError;
 
                 const newBalance = Math.max(0, inv.balance - payload.amount);
-                const newStatus = newBalance <= 0 ? 'pagado' : 'pendiente';
+                const newStatus = newBalance <= 0 ? 'pagado' : (new Date(inv.due_date) < new Date() ? 'en mora' : 'pendiente');
 
                 // 2. Insert Payment record
                 const { error: payError } = await supabase
@@ -450,9 +457,9 @@ export function useRegisterPayment() {
                         invoice_id: payload.invoiceId,
                         client_id: payload.clientId,
                         amount: payload.amount,
-                        method: 'App Dashboard (Online)',
-                        exchange_rate: 1,
-                        surcharge_pct: 0,
+                        method: paymentMethod,
+                        exchange_rate: exchangeRate,
+                        surcharge_pct: surchargePercent,
                         payment_date: new Date().toISOString()
                     });
                 if (payError) throw payError;
@@ -471,9 +478,9 @@ export function useRegisterPayment() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         amount: payload.amount,
-                        method: 'App Dashboard',
-                        exchange_rate: 1,
-                        surcharge_pct: 0
+                        method: paymentMethod,
+                        exchange_rate: exchangeRate,
+                        surcharge_pct: surchargePercent
                     })
                 });
                 if (!res.ok) {
@@ -597,8 +604,12 @@ export function useUpdateInvoiceDueDate() {
             if (!res.ok) throw new Error('Error al actualizar fecha de vencimiento');
             return res.json();
         },
-        onSuccess: () => {
+        onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
+            if (variables.clientId) {
+                queryClient.invalidateQueries({ queryKey: ['invoices', variables.clientId] });
+                queryClient.invalidateQueries({ queryKey: ['client', 'full', variables.clientId] });
+            }
         }
     });
 }
@@ -622,16 +633,31 @@ export function useUpdateInvoiceProducts() {
                 // Resolve invoice UUID from valery_note_id if necessary
                 const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId);
                 let resolvedId = invoiceId;
+                let previousTotal = 0;
+                let previousBalance = 0;
                 if (!isUUID) {
                     const { data: invRow } = await supabase.from('invoices').select('id, total_amount, balance').eq('valery_note_id', invoiceId).single();
                     if (!invRow) throw new Error('Factura no encontrada');
                     resolvedId = invRow.id;
+                    previousTotal = Number(invRow.total_amount) || 0;
+                    previousBalance = Number(invRow.balance) || 0;
+                } else {
+                    const { data: invRow } = await supabase.from('invoices').select('total_amount, balance').eq('id', resolvedId).single();
+                    if (invRow) {
+                        previousTotal = Number(invRow.total_amount) || 0;
+                        previousBalance = Number(invRow.balance) || 0;
+                    }
                 }
 
                 // Recalculate totals
                 const subtotal = products.reduce((s, p) => s + p.quantity * p.unit_price, 0);
                 const iva = apply_iva ? Math.round(subtotal * 0.16 * 100) / 100 : 0;
                 const total = Math.round((subtotal + iva) * 100) / 100;
+
+                // Calculate new balance: apply the same delta to balance as to total_amount
+                const delta = total - previousTotal;
+                const newBalance = Math.max(0, previousBalance + delta);
+                const newStatus = newBalance <= 0 ? 'pagado' : 'pendiente';
 
                 // Delete existing products and re-insert
                 const { error: delErr } = await supabase.from('invoice_products').delete().eq('invoice_id', resolvedId);
@@ -642,14 +668,16 @@ export function useUpdateInvoiceProducts() {
                 );
                 if (insErr) throw insErr;
 
-                // Update invoice totals
-                const { error: updErr } = await supabase.from('invoices').update({
+                // Update invoice totals AND balance
+                const { data: updData, error: updErr } = await supabase.from('invoices').update({
                     total_amount: total,
+                    balance: newBalance,
+                    status: newStatus,
                     updated_at: new Date().toISOString()
-                }).eq('id', resolvedId);
+                }).eq('id', resolvedId).select('total_amount, balance').single();
                 if (updErr) throw updErr;
 
-                return { success: true };
+                return { success: true, total_amount: updData?.total_amount, balance: updData?.balance };
             }
 
             const res = await fetch(`${SERVER_URL}/invoices/${invoiceId}/products`, {

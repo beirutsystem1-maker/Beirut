@@ -5,6 +5,25 @@ import { useClients } from '../logic/ClientContext';
 import { supabase } from '../lib/supabase';
 import { CustomDatePicker } from './CustomDatePicker';
 import { toLocalDateString } from '../utils/dates';
+
+/**
+ * Normalizes any date string to YYYY-MM-DD (ISO) for Supabase.
+ * Handles DD/MM/YYYY, DD-MM-YYYY, and already-correct YYYY-MM-DD formats.
+ */
+function normalizeToISO(dateStr: string): string {
+    if (!dateStr) return '';
+    // Already in YYYY-MM-DD format
+    if (/^\d{4}[-]\d{2}[-]\d{2}$/.test(dateStr)) return dateStr;
+    // DD/MM/YYYY or DD-MM-YYYY
+    const match = dateStr.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+    if (match) {
+        const day = match[1].padStart(2, '0');
+        const month = match[2].padStart(2, '0');
+        const year = match[3].length === 2 ? '20' + match[3] : match[3];
+        return `${year}-${month}-${day}`;
+    }
+    return dateStr; // fallback: return as-is
+}
 interface AssignCreditModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -64,7 +83,7 @@ export function AssignCreditModal({ isOpen, onClose, invoice, onAssign }: Assign
             setIsSubmitting(false);
             setDueDate('');
         } else if (invoice) {
-            setDueDate(invoice.fechaEmision || toLocalDateString(new Date()));
+            setDueDate(normalizeToISO(invoice.fechaEmision) || toLocalDateString(new Date()));
         }
     }, [isOpen, invoice]);
 
@@ -92,7 +111,7 @@ export function AssignCreditModal({ isOpen, onClose, invoice, onAssign }: Assign
             await appendExcelInvoice({
                 clientId: selectedClient.id,
                 docNumber: invoice.documento,
-                issueDate: invoice.fechaEmision,
+                issueDate: normalizeToISO(invoice.fechaEmision),
                 dueDate: dueDate,
                 totalAmount: invoice.totalOperacion,
                 iva: (invoice as any).iva || 0,

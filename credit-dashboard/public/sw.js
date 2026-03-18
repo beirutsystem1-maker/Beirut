@@ -1,7 +1,5 @@
 const CACHE_NAME = 'beirut-v1';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/beirut_icon.png'
 ];

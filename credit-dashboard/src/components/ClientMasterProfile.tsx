@@ -1059,111 +1059,117 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                         <X className="w-4 h-4" />
                     </button>
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pr-8">
-                        <div className="flex-1 w-full sm:w-auto">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
-                                    ${globalStatus === 'en mora' ? 'bg-rose-500 text-white' : globalStatus === 'pagado' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}
-                                `}>
-                                    {globalStatus === 'en mora' ? 'Riesgo / En Mora' : globalStatus === 'pagado' ? 'Solvente / Al Día' : 'Con Saldo Activo'}
-                                </span>
-                                {isEditing ? (
-                                    <input
-                                        type="text"
-                                        placeholder="RIF / Cédula"
-                                        value={editData.rif}
-                                        onChange={e => setEditData({ ...editData, rif: e.target.value })}
-                                        className="font-mono text-xs font-bold bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 text-foreground focus:outline-none focus:ring-1 focus:ring-accent"
-                                    />
-                                ) : (
-                                    <span className="font-mono text-xs font-bold bg-background/70 px-2 py-0.5 rounded-full border border-border/50 text-muted-foreground">{client.rif}</span>
-                                )}
+                    <form 
+                        onSubmit={async (e) => {
+                            e.preventDefault();
+                            setIsSaving(true);
+                            setUpdateError(null);
+                            try {
+                                await updateClient({ id: client.id, ...editData });
+                                setIsEditing(false);
+                                onClose(); // As in original code, close modal when done
+                            } catch (error: any) {
+                                console.error('Failed to update client:', error);
+                                setUpdateError(error.message || 'Error al actualizar el cliente');
+                            } finally {
+                                setIsSaving(false);
+                            }
+                        }}
+                        className="flex-1 w-full sm:w-auto"
+                    >
+                        {updateError && (
+                            <div className="mb-3 px-3 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-xs font-medium">
+                                {updateError}
                             </div>
-                            
-                            <div className="flex items-center gap-3">
-                                {isEditing ? (
-                                    <input
-                                        type="text"
-                                        placeholder="Nombre del cliente"
-                                        value={editData.name}
-                                        onChange={e => setEditData({ ...editData, name: e.target.value })}
-                                        className="text-xl font-bold tracking-tight text-foreground bg-background/90 px-2.5 py-1 rounded-md border border-accent/50 w-full max-w-[300px] focus:outline-none focus:ring-1 focus:ring-accent mb-1"
-                                        autoFocus
-                                    />
-                                ) : (
-                                    <h2 className="text-xl font-bold tracking-tight text-foreground">{client.name}</h2>
-                                )}
-                                
-                                {!isEditing ? (
-                                    <button 
-                                        onClick={() => setIsEditing(true)}
-                                        className="p-1.5 rounded-full text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors shrink-0"
-                                        title="Editar datos del cliente"
-                                    >
-                                        <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                ) : (
-                                    <button 
-                                        onClick={async () => {
-                                            setIsSaving(true);
-                                            setUpdateError(null);
-                                            try {
-                                                await updateClient({ id: client.id, ...editData });
-                                                setIsEditing(false);
-                                                onClose();
-                                            } catch (error: any) {
-                                                console.error('Failed to update client:', error);
-                                                setUpdateError(error.message || 'Error al actualizar el cliente');
-                                            } finally {
-                                                setIsSaving(false);
-                                            }
-                                        }}
-                                        disabled={isSaving}
-                                        className="p-1.5 rounded-full bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors shrink-0 disabled:opacity-50"
-                                        title="Guardar cambios"
-                                    >
-                                        {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                                    </button>
-                                )}
-                            </div>
-                            
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
-                                {isEditing ? (
-                                    <>
-                                        <input
-                                            type="tel"
-                                            placeholder="Teléfono"
-                                            value={editData.phone}
-                                            onChange={e => setEditData({ ...editData, phone: e.target.value })}
-                                            className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-32"
-                                        />
-                                        <input
-                                            type="email"
-                                            placeholder="Correo electrónico"
-                                            value={editData.email}
-                                            onChange={e => setEditData({ ...editData, email: e.target.value })}
-                                            className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-48"
-                                        />
-                                        <input
-                                            type="text"
-                                            placeholder="Dirección"
-                                            value={editData.address}
-                                            onChange={e => setEditData({ ...editData, address: e.target.value })}
-                                            className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-full mt-1"
-                                        />
-                                        {updateError && (
-                                            <p className="w-full text-rose-500 font-medium mt-2 bg-rose-50/50 px-2 py-1 rounded border border-rose-100/50">
-                                                {updateError}
-                                            </p>
-                                        )}
-                                    </>
-                                ) : (
-                                    <>
-                                        <span>{client.phone}</span>
-                                        <span>{client.email}</span>
-                                    </>
-                                )}
-                            </div>
+                        )}
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider
+                                ${globalStatus === 'en mora' ? 'bg-rose-500 text-white' : globalStatus === 'pagado' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}
+                            `}>
+                                {globalStatus === 'en mora' ? 'Riesgo / En Mora' : globalStatus === 'pagado' ? 'Solvente / Al Día' : 'Con Saldo Activo'}
+                            </span>
+                            {isEditing ? (
+                                <input
+                                    type="text"
+                                    placeholder="RIF / Cédula"
+                                    value={editData.rif}
+                                    onChange={e => setEditData({ ...editData, rif: e.target.value })}
+                                    className="font-mono text-xs font-bold bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 text-foreground focus:outline-none focus:ring-1 focus:ring-accent"
+                                />
+                            ) : (
+                                <span className="font-mono text-xs font-bold bg-background/70 px-2 py-0.5 rounded-full border border-border/50 text-muted-foreground">{client.rif}</span>
+                            )}
                         </div>
+                        
+                        <div className="flex items-center gap-3">
+                            {isEditing ? (
+                                <input
+                                    type="text"
+                                    placeholder="Nombre del cliente"
+                                    value={editData.name}
+                                    onChange={e => setEditData({ ...editData, name: e.target.value })}
+                                    className="text-xl font-bold tracking-tight text-foreground bg-background/90 px-2.5 py-1 rounded-md border border-accent/50 w-full max-w-[300px] focus:outline-none focus:ring-1 focus:ring-accent mb-1"
+                                    required
+                                    autoFocus
+                                />
+                            ) : (
+                                <h2 className="text-xl font-bold tracking-tight text-foreground">{client.name}</h2>
+                            )}
+                            
+                            {!isEditing ? (
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsEditing(true)}
+                                    className="p-1.5 rounded-full text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors shrink-0"
+                                    title="Editar datos del cliente"
+                                >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                            ) : (
+                                <button 
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="p-1.5 rounded-full bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors shrink-0 disabled:opacity-50"
+                                    title="Guardar cambios"
+                                >
+                                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                </button>
+                            )}
+                        </div>
+                        
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
+                            {isEditing ? (
+                                <>
+                                    <input
+                                        type="tel"
+                                        placeholder="Teléfono"
+                                        value={editData.phone}
+                                        onChange={e => setEditData({ ...editData, phone: e.target.value })}
+                                        className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-32"
+                                    />
+                                    <input
+                                        type="email"
+                                        placeholder="Correo electrónico"
+                                        value={editData.email}
+                                        onChange={e => setEditData({ ...editData, email: e.target.value })}
+                                        className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-48"
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Dirección"
+                                        value={editData.address}
+                                        onChange={e => setEditData({ ...editData, address: e.target.value })}
+                                        className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-full mt-1"
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <span>{client.phone}</span>
+                                    <span>{client.email}</span>
+                                </>
+                            )}
+                        </div>
+                    </form>
                         <div className="bg-background/80 backdrop-blur border border-border/50 px-4 py-3 rounded-xl shadow-sm text-right shrink-0 min-w-fit sm:min-w-[13rem] space-y-1 flex flex-col justify-center">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground flex items-center justify-end gap-1.5 flex-nowrap">
                                 Deuda Acumulada

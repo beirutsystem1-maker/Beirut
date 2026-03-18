@@ -639,8 +639,12 @@ export function useUpdateInvoiceDueDate() {
             if (USE_SUPABASE_DIRECT && supabase) {
                 let resolvedInvoiceId = invoiceId;
                 if (!resolvedInvoiceId.includes('-')) {
-                    const { data: realInvoice } = await supabase.from('invoices').select('id').eq('valery_note_id', invoiceId).single();
-                    if (realInvoice) resolvedInvoiceId = realInvoice.id;
+                    const { data: realInvoice, error: findErr } = await supabase.from('invoices').select('id').eq('valery_note_id', invoiceId).single();
+                    if (realInvoice) {
+                        resolvedInvoiceId = realInvoice.id;
+                    } else {
+                        throw new Error(`Resolución UUID fallida para nota ${invoiceId}: ${findErr?.message || 'No encontrada'}`);
+                    }
                 }
                 const { error } = await supabase
                     .from('invoices')
@@ -659,6 +663,19 @@ export function useUpdateInvoiceDueDate() {
             return res.json();
         },
         onSuccess: (_data, variables) => {
+            queryClient.setQueryData(['clients', 0, 50], (oldData: any) => {
+                if (!oldData || !oldData.data) return oldData;
+                return {
+                    ...oldData,
+                    data: oldData.data.map((c: Client) => {
+                        if (c.id !== variables.clientId) return c;
+                        return {
+                            ...c,
+                            invoices: (c.invoices || []).map((inv: Invoice) => inv.id === variables.invoiceId || inv.valeryNoteId === variables.invoiceId ? { ...inv, dueDate: variables.dueDate } : inv)
+                        };
+                    })
+                };
+            });
             queryClient.invalidateQueries({ queryKey: ['clients'] });
             if (variables.clientId) {
                 queryClient.invalidateQueries({ queryKey: ['invoices', variables.clientId] });
@@ -686,8 +703,12 @@ export function useUpdateInvoiceProducts() {
             if (USE_SUPABASE_DIRECT && supabase) {
                 let resolvedInvoiceId = invoiceId;
                 if (!resolvedInvoiceId.includes('-')) {
-                    const { data: realInvoice } = await supabase.from('invoices').select('id').eq('valery_note_id', invoiceId).single();
-                    if (realInvoice) resolvedInvoiceId = realInvoice.id;
+                    const { data: realInvoice, error: findErr } = await supabase.from('invoices').select('id').eq('valery_note_id', invoiceId).single();
+                    if (realInvoice) {
+                        resolvedInvoiceId = realInvoice.id;
+                    } else {
+                        throw new Error(`Resolución UUID fallida para nota ${invoiceId}: ${findErr?.message || 'No encontrada'}`);
+                    }
                 }
 
                 const { data: invRow } = await supabase
@@ -716,10 +737,12 @@ export function useUpdateInvoiceProducts() {
                 const { error: delErr } = await supabase.from('invoice_products').delete().eq('invoice_id', resolvedId);
                 if (delErr) throw delErr;
 
-                const { error: insErr } = await supabase.from('invoice_products').insert(
-                    products.map(p => ({ invoice_id: resolvedId, description: p.description, quantity: p.quantity, unit_price: p.unit_price }))
-                );
-                if (insErr) throw insErr;
+                if (products.length > 0) {
+                    const { error: insErr } = await supabase.from('invoice_products').insert(
+                        products.map(p => ({ invoice_id: resolvedId, description: p.description, quantity: p.quantity, unit_price: p.unit_price }))
+                    );
+                    if (insErr) throw insErr;
+                }
 
                 // Update invoice totals AND balance
                 const { data: updData, error: updErr } = await supabase.from('invoices').update({
@@ -741,7 +764,30 @@ export function useUpdateInvoiceProducts() {
             if (!res.ok) throw new Error('Error al actualizar productos de la factura');
             return res.json();
         },
-        onSuccess: (_data, variables) => {
+        onSuccess: (data, variables) => {
+            queryClient.setQueryData(['clients', 0, 50], (oldData: any) => {
+                if (!oldData || !oldData.data) return oldData;
+                return {
+                    ...oldData,
+                    data: oldData.data.map((c: Client) => {
+                        if (c.id !== variables.clientId) return c;
+                        return {
+                            ...c,
+                            invoices: (c.invoices || []).map((inv: Invoice) => {
+                                if (inv.id === variables.invoiceId || inv.valeryNoteId === variables.invoiceId) {
+                                    return {
+                                        ...inv,
+                                        products: variables.products,
+                                        totalAmount: data.total_amount ?? inv.totalAmount,
+                                        balance: data.balance ?? inv.balance
+                                    };
+                                }
+                                return inv;
+                            })
+                        };
+                    })
+                };
+            });
             queryClient.invalidateQueries({ queryKey: ['clients'] });
             if (variables.clientId) {
                 queryClient.invalidateQueries({ queryKey: ['invoices', variables.clientId] });
@@ -760,8 +806,12 @@ export function useDeleteInvoice() {
             if (USE_SUPABASE_DIRECT && supabase) {
                 let resolvedInvoiceId = invoiceId;
                 if (!resolvedInvoiceId.includes('-')) {
-                    const { data: realInvoice } = await supabase.from('invoices').select('id').eq('valery_note_id', invoiceId).single();
-                    if (realInvoice) resolvedInvoiceId = realInvoice.id;
+                    const { data: realInvoice, error: findErr } = await supabase.from('invoices').select('id').eq('valery_note_id', invoiceId).single();
+                    if (realInvoice) {
+                        resolvedInvoiceId = realInvoice.id;
+                    } else {
+                        throw new Error(`Resolución UUID fallida para nota ${invoiceId}: ${findErr?.message || 'No encontrada'}`);
+                    }
                 }
 
                 // 1. Eliminar pagos relacionados (FK: payments.invoice_id)
@@ -800,6 +850,19 @@ export function useDeleteInvoice() {
             return res.json();
         },
         onSuccess: (_data, variables) => {
+            queryClient.setQueryData(['clients', 0, 50], (oldData: any) => {
+                if (!oldData || !oldData.data) return oldData;
+                return {
+                    ...oldData,
+                    data: oldData.data.map((c: Client) => {
+                        if (c.id !== variables.clientId) return c;
+                        return {
+                            ...c,
+                            invoices: (c.invoices || []).filter((inv: Invoice) => inv.id !== variables.invoiceId && inv.valeryNoteId !== variables.invoiceId)
+                        };
+                    })
+                };
+            });
             queryClient.invalidateQueries({ queryKey: ['clients'] });
             queryClient.invalidateQueries({ queryKey: ['invoices', variables.clientId] });
             queryClient.invalidateQueries({ queryKey: ['client', 'full', variables.clientId] });

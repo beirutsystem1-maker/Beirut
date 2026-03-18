@@ -176,9 +176,12 @@ function InvoiceDetailModal({
         setSaveSuccess(false);
     };
 
+    const [saveError, setSaveError] = useState<string | null>(null);
+
     const handleSave = async () => {
         setIsSaving(true);
         setShowConfirm(false);
+        setSaveError(null);
         try {
             // Parse string values to numbers before saving
             const productsToSave = editedProducts.map(p => ({
@@ -188,7 +191,6 @@ function InvoiceDetailModal({
             }));
 
             // ACCIÓN 1 — Actualizar la Factura: enviar productos al servidor
-            // El servidor recalcula subtotal, IVA 16%, total USD y balance
             const savedData = await updateProducts.mutateAsync({
                 invoiceId: invoice.id,
                 clientId,
@@ -205,26 +207,22 @@ function InvoiceDetailModal({
                  });
             }
 
-            // ACCIÓN 2 — Actualizar la Ficha del Cliente:
-            // ANTES: total_anterior = currentSavedTotal (capturado antes de este guardado)
-            // DESPUÉS: usar el total_amount oficial del servidor para evitar deriva de redondeo
             const total_anterior = currentSavedTotal;
             const total_nuevo = savedData?.total_amount != null
                 ? Number(savedData.total_amount)
-                : granTotal; // fallback al cálculo local
+                : granTotal; // fallback
             const delta = total_nuevo - total_anterior;
 
-            // Aplica delta al saldo visible del cliente (suma si positivo, resta si negativo)
             if (onInvoiceUpdated) {
                 onInvoiceUpdated(invoice.id, delta, total_nuevo, productsToSave);
             }
-            // Actualizar el total guardado localmente para la próxima edición
             setCurrentSavedTotal(total_nuevo);
 
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
-        } catch (e) {
+        } catch (e: any) {
             console.error('Error saving products', e);
+            setSaveError(e.message || 'Error guardando factura');
         } finally {
             setIsSaving(false);
         }

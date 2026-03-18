@@ -351,8 +351,26 @@ export function useUpdateClient() {
             console.error('Mutation useUpdateClient failed:', err);
             // Optionally, we could show an alert or toast here
         },
-        onSuccess: (_, variables) => {
+        onSuccess: (_data, variables) => {
             console.log('Update successful, invalidating queries...');
+            // Optimistic manual update of the cache to instantly show the changes
+            queryClient.setQueryData(['clients', 0, 50], (oldData: any) => {
+                if (!oldData || !oldData.data) return oldData;
+                return {
+                    ...oldData,
+                    data: oldData.data.map((c: Client) => 
+                        c.id === variables.id 
+                        ? { ...c, ...variables }
+                        : c
+                    )
+                };
+            });
+            
+            queryClient.setQueryData(['client', 'full', variables.id], (oldData: any) => {
+                if (!oldData) return oldData;
+                return { ...oldData, ...variables };
+            });
+            
             queryClient.invalidateQueries({ queryKey: ['clients'] });
             queryClient.invalidateQueries({ queryKey: ['client', 'full', variables.id] });
         },

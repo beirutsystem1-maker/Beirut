@@ -102,7 +102,8 @@ function InvoiceDetailModal({
     showSurchargeDebt,
     surchargePercent,
     clientId,
-    onInvoiceUpdated
+    onInvoiceUpdated,
+    onInvoiceDeleted
 }: {
     invoice: Invoice;
     onClose: () => void;
@@ -110,7 +111,8 @@ function InvoiceDetailModal({
     showSurchargeDebt: boolean;
     surchargePercent: number;
     clientId: string;
-    onInvoiceUpdated?: (invoiceId: string, delta: number, newTotal: number) => void;
+    onInvoiceUpdated?: (invoiceId: string, delta: number, newTotal: number, newProducts: any[]) => void;
+    onInvoiceDeleted?: (invoiceId: string) => void;
 }) {
     // Clone products into local editable state (strings allow empty field while typing)
     const [editedProducts, setEditedProducts] = useState<{ description: string; quantity: string; unit_price: string }[]>(() =>
@@ -214,7 +216,7 @@ function InvoiceDetailModal({
 
             // Aplica delta al saldo visible del cliente (suma si positivo, resta si negativo)
             if (onInvoiceUpdated) {
-                onInvoiceUpdated(invoice.id, delta, total_nuevo);
+                onInvoiceUpdated(invoice.id, delta, total_nuevo, productsToSave);
             }
             // Actualizar el total guardado localmente para la próxima edición
             setCurrentSavedTotal(total_nuevo);
@@ -233,6 +235,7 @@ function InvoiceDetailModal({
         setDeleteError(null);
         try {
             await deleteInvoice.mutateAsync({ invoiceId: invoice.id, clientId });
+            if (onInvoiceDeleted) onInvoiceDeleted(invoice.id);
             onClose();
         } catch (e: any) {
             setDeleteError(e.message || 'Error al eliminar la factura');
@@ -515,33 +518,32 @@ function InvoiceDetailModal({
                 </div>
 
                 {/* Dialog Confirmar Guardado */}
-                {showConfirm && createPortal(
-                    <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-                        <div className="bg-white shadow-2xl rounded-2xl p-6 max-w-[320px] w-full animate-scale-in flex flex-col items-center text-center">
+                {showConfirm && (
+                    <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in rounded-2xl">
+                        <div className="bg-white shadow-2xl rounded-2xl p-6 max-w-[320px] w-full animate-scale-in flex flex-col items-center text-center relative z-10" onClick={(e) => e.stopPropagation()}>
                             <div className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mb-4">
                                 <Save className="w-6 h-6" />
                             </div>
                             <h3 className="font-bold text-lg mb-2 text-gray-900">Confirmar Guardado</h3>
                             <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-                                Se actualizarán el desglose de productos y la fecha de vencimiento en la base de datos.
+                                Se actualizarán el desglose de productos y la fecha de vencimiento.
                             </p>
                             <div className="flex gap-3 w-full">
-                                <button onClick={() => setShowConfirm(false)} disabled={isSaving} className="flex-1 h-10 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 text-sm">
+                                <button onClick={(e) => { e.stopPropagation(); setShowConfirm(false); }} disabled={isSaving} className="flex-1 h-10 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 text-sm">
                                     Cancelar
                                 </button>
-                                <button onClick={handleSave} disabled={isSaving} className="flex-1 h-10 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 text-sm flex items-center justify-center gap-2">
+                                <button onClick={(e) => { e.stopPropagation(); handleSave(); }} disabled={isSaving} className="flex-1 h-10 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 text-sm flex items-center justify-center gap-2">
                                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar'}
                                 </button>
                             </div>
                         </div>
-                    </div>,
-                    document.body
+                    </div>
                 )}
 
                 {/* Dialog Confirmar Borrado */}
-                {showDeleteConfirm && createPortal(
-                    <div className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-                        <div className="bg-white shadow-2xl rounded-2xl p-6 max-w-[320px] w-full animate-scale-in flex flex-col items-center text-center">
+                {showDeleteConfirm && (
+                    <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in rounded-2xl">
+                        <div className="bg-white shadow-2xl rounded-2xl p-6 max-w-[320px] w-full animate-scale-in flex flex-col items-center text-center relative z-10" onClick={(e) => e.stopPropagation()}>
                             <div className="w-14 h-14 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mb-4">
                                 <Trash2 className="w-6 h-6" />
                             </div>
@@ -559,16 +561,15 @@ function InvoiceDetailModal({
                             )}
 
                             <div className="flex gap-3 w-full">
-                                <button onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting} className="flex-1 h-10 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 text-sm">
+                                <button onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(false); }} disabled={isDeleting} className="flex-1 h-10 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 text-sm">
                                     Cancelar
                                 </button>
-                                <button onClick={handleDelete} disabled={isDeleting} className="flex-1 h-10 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2">
+                                <button onClick={(e) => { e.stopPropagation(); handleDelete(); }} disabled={isDeleting} className="flex-1 h-10 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2">
                                     {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Eliminar'}
                                 </button>
                             </div>
                         </div>
-                    </div>,
-                    document.body
+                    </div>
                 )}
             </div>
         </div>,
@@ -954,6 +955,8 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
     const [surchargeUnlocked, setSurchargeUnlocked] = useState(false);
     const [balanceOverrides, setBalanceOverrides] = useState<Record<string, number>>({});
     const [totalAmountOverrides, setTotalAmountOverrides] = useState<Record<string, number>>({});
+    const [productsOverrides, setProductsOverrides] = useState<Record<string, any[]>>({});
+    const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
     // IDs of invoices currently playing the exit animation
     const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
     // IDs already migrated (hidden from Facturas Activas)
@@ -998,7 +1001,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
         });
     }, [client]);
 
-    const handleInvoiceUpdated = useCallback((invoiceId: string, delta: number, newTotal?: number) => {
+    const handleInvoiceUpdated = useCallback((invoiceId: string, delta: number, newTotal?: number, newProducts?: any[]) => {
         // CASO A (delta > 0): subió precio/cant/producto → saldo del cliente SUBE
         // CASO B (delta < 0): bajó precio/cant/eliminó → saldo del cliente BAJA
         setBalanceOverrides(prev => {
@@ -1012,16 +1015,22 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
         if (newTotal !== undefined) {
             setTotalAmountOverrides(prev => ({ ...prev, [invoiceId]: newTotal }));
         }
+        if (newProducts !== undefined) {
+            setProductsOverrides(prev => ({ ...prev, [invoiceId]: newProducts }));
+        }
     }, [client]);
 
     if (!client) return null;
 
-    const invoicesWithOverrides = (client.invoices || []).map((inv: Invoice) => ({
+    const invoicesWithOverrides = (client.invoices || [])
+        .filter((inv: Invoice) => !deletedIds.has(inv.id))
+        .map((inv: Invoice) => ({
         ...inv,
         balance: balanceOverrides[inv.id] !== undefined ? balanceOverrides[inv.id] : inv.balance,
         // Actualizar totalAmount para que InvoiceDetailModal use el total correcto
         // como total_anterior en la siguiente edición (evita delta incorrecto)
         totalAmount: totalAmountOverrides[inv.id] !== undefined ? totalAmountOverrides[inv.id] : inv.totalAmount,
+        products: productsOverrides[inv.id] !== undefined ? productsOverrides[inv.id] : inv.products,
     }));
 
     const totalDebt = invoicesWithOverrides.reduce((sum: number, inv: Invoice) => sum + inv.balance, 0);
@@ -1376,6 +1385,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                         surchargePercent={typeof surchargePercent === 'number' ? surchargePercent : parseFloat(surchargePercent as string) || 0}
                         clientId={client.id}
                         onInvoiceUpdated={handleInvoiceUpdated}
+                        onInvoiceDeleted={(id) => setDeletedIds(prev => new Set([...prev, id]))}
                     />
                 );
             })()}

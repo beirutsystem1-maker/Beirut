@@ -729,11 +729,29 @@ export function useDeleteInvoice() {
     return useMutation({
         mutationFn: async ({ invoiceId }: { invoiceId: string; clientId: string }) => {
             if (USE_SUPABASE_DIRECT && supabase) {
+                // 1. Eliminar pagos relacionados (FK: payments.invoice_id)
+                const { error: payErr } = await supabase
+                    .from('payments')
+                    .delete()
+                    .eq('invoice_id', invoiceId);
+                if (payErr) {
+                    console.warn('[DeleteInvoice] Error al eliminar pagos:', payErr.message);
+                    // No lanzar — si no hay pagos o la tabla es diferente, continúa
+                }
+
+                // 2. Eliminar productos de la factura (FK: invoice_products.invoice_id)
+                const { error: prodErr } = await supabase
+                    .from('invoice_products')
+                    .delete()
+                    .eq('invoice_id', invoiceId);
+                if (prodErr) throw new Error(`Error al eliminar productos: ${prodErr.message}`);
+
+                // 3. Eliminar la factura
                 const { error } = await supabase
                     .from('invoices')
                     .delete()
                     .eq('id', invoiceId);
-                if (error) throw error;
+                if (error) throw new Error(`Error al eliminar factura: ${error.message}`);
                 return { success: true };
             }
 

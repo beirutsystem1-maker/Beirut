@@ -1059,24 +1059,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                         <X className="w-4 h-4" />
                     </button>
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pr-8">
-                    <form 
-                        onSubmit={async (e) => {
-                            e.preventDefault();
-                            setIsSaving(true);
-                            setUpdateError(null);
-                            try {
-                                await updateClient({ id: client.id, ...editData });
-                                setIsEditing(false);
-                                onClose(); // As in original code, close modal when done
-                            } catch (error: any) {
-                                console.error('Failed to update client:', error);
-                                setUpdateError(error.message || 'Error al actualizar el cliente');
-                            } finally {
-                                setIsSaving(false);
-                            }
-                        }}
-                        className="flex-1 w-full sm:w-auto"
-                    >
+                    <div className="flex-1 w-full sm:w-auto">
                         {updateError && (
                             <div className="mb-3 px-3 py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg text-xs font-medium">
                                 {updateError}
@@ -1095,6 +1078,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                     value={editData.rif}
                                     onChange={e => setEditData({ ...editData, rif: e.target.value })}
                                     className="font-mono text-xs font-bold bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 text-foreground focus:outline-none focus:ring-1 focus:ring-accent"
+                                    id="editRif"
                                 />
                             ) : (
                                 <span className="font-mono text-xs font-bold bg-background/70 px-2 py-0.5 rounded-full border border-border/50 text-muted-foreground">{client.rif}</span>
@@ -1111,6 +1095,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                     className="text-xl font-bold tracking-tight text-foreground bg-background/90 px-2.5 py-1 rounded-md border border-accent/50 w-full max-w-[300px] focus:outline-none focus:ring-1 focus:ring-accent mb-1"
                                     required
                                     autoFocus
+                                    id="editName"
                                 />
                             ) : (
                                 <h2 className="text-xl font-bold tracking-tight text-foreground">{client.name}</h2>
@@ -1127,10 +1112,31 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                 </button>
                             ) : (
                                 <button 
-                                    type="submit"
+                                    type="button"
                                     disabled={isSaving}
                                     className="p-1.5 rounded-full bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors shrink-0 disabled:opacity-50"
                                     title="Guardar cambios"
+                                    onClick={async (e) => {
+                                        // Validar campos nativos manualmente antes de guardar
+                                        const emailInput = document.getElementById('editEmail') as HTMLInputElement;
+                                        if (emailInput && !emailInput.reportValidity()) return;
+
+                                        const nameInput = document.getElementById('editName') as HTMLInputElement;
+                                        if (nameInput && !nameInput.reportValidity()) return;
+
+                                        setIsSaving(true);
+                                        setUpdateError(null);
+                                        try {
+                                            await updateClient({ id: client.id, ...editData });
+                                            setIsEditing(false);
+                                            onClose();
+                                        } catch (error: any) {
+                                            console.error('Failed to update client:', error);
+                                            setUpdateError(error.message || 'Error al actualizar el cliente');
+                                        } finally {
+                                            setIsSaving(false);
+                                        }
+                                    }}
                                 >
                                     {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                                 </button>
@@ -1146,6 +1152,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                         value={editData.phone}
                                         onChange={e => setEditData({ ...editData, phone: e.target.value })}
                                         className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-32"
+                                        id="editPhone"
                                     />
                                     <input
                                         type="email"
@@ -1153,6 +1160,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                         value={editData.email}
                                         onChange={e => setEditData({ ...editData, email: e.target.value })}
                                         className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-48"
+                                        id="editEmail"
                                     />
                                     <input
                                         type="text"
@@ -1160,6 +1168,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                         value={editData.address}
                                         onChange={e => setEditData({ ...editData, address: e.target.value })}
                                         className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-full mt-1"
+                                        id="editAddress"
                                     />
                                 </>
                             ) : (
@@ -1169,7 +1178,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                 </>
                             )}
                         </div>
-                    </form>
+                    </div>
                         <div className="bg-background/80 backdrop-blur border border-border/50 px-4 py-3 rounded-xl shadow-sm text-right shrink-0 min-w-fit sm:min-w-[13rem] space-y-1 flex flex-col justify-center">
                             <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground flex items-center justify-end gap-1.5 flex-nowrap">
                                 Deuda Acumulada

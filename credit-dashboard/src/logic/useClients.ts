@@ -47,6 +47,7 @@ async function fetchFromSupabase() {
             dueDate: inv.due_date || '',
             totalAmount: Number(inv.total_amount) || 0,
             balance: Number(inv.balance) || 0,
+            iva: Number(inv.iva) || 0,
             status: inv.status,
             products: (inv.invoice_products || []).map((p: any) => ({
                 description: p.description,

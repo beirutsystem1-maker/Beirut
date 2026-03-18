@@ -543,16 +543,37 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
 
         sortedInvoices.forEach(inv => {
             const statusLabel = inv.status === 'en mora' ? '_En mora_' : '_Pendiente_';
-            const mainProd = inv.products?.[0];
-            const prodDesc = mainProd ? `${mainProd.description}` : 'Productos varios';
-            const prodQty = mainProd ? mainProd.quantity : 1;
-            
-            // Subtotal de la factura incluyendo el factor de recargo (IVA)
-            const lineTotal = inv.totalAmount * factor;
-            
+            const products = Array.isArray(inv.products) ? inv.products : [];
+
+            // Subtotal base (suma de todos los productos sin recargo)
+            const subtotalBase = products.length > 0
+                ? products.reduce((s: number, p: any) => s + (Number(p.quantity) || 1) * (Number(p.price ?? p.precio ?? p.unitPrice) || 0), 0)
+                : inv.totalAmount;
+
+            // IVA de la factura (campo iva o ivaAmount)
+            const ivaUsd = Number((inv as any).iva ?? (inv as any).ivaAmount ?? 0);
+
+            // Total con recargo aplicado al cliente
+            const totalConRecargo = (subtotalBase + ivaUsd) * factor;
+
             msg += `*#${inv.valeryNoteId}* \u00B7 ${statusLabel}\n`;
-            msg += `  ${EM.bullet} ${prodQty}x ${prodDesc} ........ $${fmtNum(lineTotal)}\n`;
-            msg += `  L Subtotal: *$${fmtNum(lineTotal)}*\n\n`;
+
+            if (products.length > 0) {
+                products.forEach((p: any) => {
+                    const qty   = Number(p.quantity) || 1;
+                    const price = Number(p.price ?? p.precio ?? p.unitPrice) || 0;
+                    const desc  = String(p.description ?? p.nombre ?? p.name ?? 'Producto');
+                    msg += `  ${EM.bullet} ${qty}x ${desc} ........ $${fmtNum(qty * price)}\n`;
+                });
+            } else {
+                msg += `  ${EM.bullet} Productos varios ........ $${fmtNum(subtotalBase)}\n`;
+            }
+
+            if (ivaUsd > 0) {
+                msg += `  ${EM.bullet} IVA (16%) ........ $${fmtNum(ivaUsd * factor)}\n`;
+            }
+
+            msg += `  L Total: *$${fmtNum(totalConRecargo)}*\n\n`;
         });
 
         if (relevantPayments.length > 0) {

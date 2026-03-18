@@ -167,17 +167,14 @@ function InvoiceDetailModal({
     // === LÓGICA DE CÁLCULO V4 (Math.round en cada paso) ===
     const factor = 1 + surchargePercent / 100;
 
-    // Constantes previamente omitidas (V3 a V4)
-    const hasOriginalIva = true; // El IVA del 16% siempre aplica por ahora
+    // Modificado: los precios unitarios ya incluyen IVA desde ExcelImportView
+    const hasOriginalIva = false; // IVA is embedded, do not add 16% on top
     const bcvMode = !showBaseDebt && showSurchargeDebt; // Ocular paralelo, mostrar BCV
     
-    // Subtotal: redondear fila por fila antes de acumular
-    const subtotal = editedProducts.reduce((acc, p) => 
+    // Total (subtotal de fila = cant x precio)
+    const granTotal = editedProducts.reduce((acc, p) => 
         acc + Math.round((parseFloat(p.quantity) || 0) * (parseFloat(p.unit_price) || 0) * 100) / 100, 
     0);
-    
-    const iva = hasOriginalIva ? Math.round(subtotal * 0.16 * 100) / 100 : 0;
-    const granTotal = Math.round((subtotal + iva) * 100) / 100;
 
 
     const updateField = (i: number, field: 'quantity' | 'unit_price', val: string) => {
@@ -446,23 +443,9 @@ function InvoiceDetailModal({
                             </p>
 
                             <div className="flex flex-col gap-2 mb-4">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-[12px] font-medium text-gray-500">Subtotal</span>
-                                    <span className="text-[13px] font-semibold text-gray-600">
-                                        {showBaseDebt ? `$${formatNumber(subtotal)}` : bcvMode ? <span className="text-amber-500">{formatCurrency(subtotal * factor)}</span> : '****'}
-                                    </span>
-                                </div>
-                                {hasOriginalIva && (
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-[12px] font-bold text-amber-500/90 tracking-wide">IVA 16%</span>
-                                        <span className="text-[13px] font-bold text-amber-600">
-                                            {showBaseDebt ? `$${formatNumber(iva)}` : bcvMode ? <span className="text-amber-500">{formatCurrency(iva * factor)}</span> : '****'}
-                                        </span>
-                                    </div>
-                                )}
                                 <div className="border-t border-gray-100 pt-3 mt-1 flex justify-between items-end">
                                     <span className="text-[11px] font-bold text-gray-800 uppercase tracking-widest pb-0.5">
-                                        Total
+                                        Total General
                                     </span>
                                     <span className="text-[20px] font-black text-gray-900 leading-none tracking-tight">
                                         {showBaseDebt ? `$${formatNumber(granTotal)}` : bcvMode ? <span className="text-amber-500 tracking-tight leading-none">{formatCurrency(granTotal * factor)}</span> : '****'}

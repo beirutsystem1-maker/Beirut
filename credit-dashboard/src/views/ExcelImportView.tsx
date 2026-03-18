@@ -251,7 +251,6 @@ export function ExcelImportView() {
                 ...inv,
                 originalTotal: inv.totalOperacion,
                 totalOperacion: round2(inv.totalOperacion / rate),
-                iva: inv.iva ? round2(inv.iva / rate) : 0,
                 products: inv.products.map(p => ({ ...p, precio: round2(p.precio / rate) })),
                 tasaAplicada: rate
             };
@@ -292,7 +291,11 @@ export function ExcelImportView() {
                         if (nombre.includes('CREDITO') || nombre.includes('CRÉDITO')) return false;
                         if (isIvaOrTax(nombre)) return false;
                         return true;
-                    });
+                    }).map((p: ProductRow) => ({
+                        ...p,
+                        precio: round2(p.precio * 1.16) // Aplica IVA 16% directo al precio unitario
+                    }));
+
                     processResult([{
                         documento: d.documento || 'PDF-' + Date.now(),
                         fechaEmision: d.fechaEmision,
@@ -301,7 +304,6 @@ export function ExcelImportView() {
                         vendedor: d.vendedor,
                         products: cleanProducts,
                         currency: 'USD',
-                        iva: d.iva,
                         tasaAplicada: d.tasaAplicada,
                         isFromOCR: true
                     }]);
@@ -322,12 +324,21 @@ export function ExcelImportView() {
                 const currency = detectCurrency(JSON.stringify(result), totalAmount);
                 const rateToUse = parallelRate || 1;
 
-                const withCurrency = result.map(inv => ({ 
-                    ...inv, 
-                    currency, 
-                    originalTotal: currency === 'Bs' ? inv.totalOperacion : undefined,
-                    tasaAplicada: rateToUse
-                }));
+                const withCurrency = result.map(inv => {
+                    // Aplica IVA 16% a cada producto del Excel importado directamente en el precio unitario
+                    const productsWithIva = inv.products.map(p => ({
+                        ...p,
+                        precio: round2(p.precio * 1.16)
+                    }));
+                    
+                    return { 
+                        ...inv,
+                        products: productsWithIva,
+                        currency, 
+                        originalTotal: currency === 'Bs' ? inv.totalOperacion : undefined,
+                        tasaAplicada: rateToUse
+                    };
+                });
 
                 if (currency === 'Bs') {
                     processResult(withCurrency.map(inv => convertInvoiceWithRate(inv, rateToUse)));
@@ -354,10 +365,7 @@ export function ExcelImportView() {
             inv.products = prods;
             
             const sumProds = prods.reduce((s, pr) => s + (pr.subtotal !== undefined ? pr.subtotal : pr.cantidad * pr.precio), 0);
-            if (inv.iva != null && inv.iva > 0) {
-                inv.iva = round2(sumProds * 0.16);
-            }
-            inv.totalOperacion = round2(sumProds + (inv.iva || 0));
+            inv.totalOperacion = round2(sumProds);
             
             next[invIdx] = inv;
             return next;
@@ -380,10 +388,7 @@ export function ExcelImportView() {
             inv.products = prods;
             
             const sumProds = prods.reduce((s, pr) => s + (pr.subtotal !== undefined ? pr.subtotal : pr.cantidad * pr.precio), 0);
-            if (inv.iva != null && inv.iva > 0) {
-                inv.iva = round2(sumProds * 0.16);
-            }
-            inv.totalOperacion = round2(sumProds + (inv.iva || 0));
+            inv.totalOperacion = round2(sumProds);
             
             next[invIdx] = inv;
             return next;
@@ -404,10 +409,7 @@ export function ExcelImportView() {
             inv.products = prods;
             
             const sumProds = prods.reduce((s, pr) => s + (pr.subtotal !== undefined ? pr.subtotal : pr.cantidad * pr.precio), 0);
-            if (inv.iva != null && inv.iva > 0) {
-                inv.iva = round2(sumProds * 0.16);
-            }
-            inv.totalOperacion = round2(sumProds + (inv.iva || 0));
+            inv.totalOperacion = round2(sumProds);
             
             next[invIdx] = inv;
             return next;
@@ -422,10 +424,7 @@ export function ExcelImportView() {
             inv.products = inv.products.filter((_, idx) => idx !== pIdx);
             
             const sumProds = inv.products.reduce((s, pr) => s + (pr.subtotal !== undefined ? pr.subtotal : pr.cantidad * pr.precio), 0);
-            if (inv.iva != null && inv.iva > 0) {
-                inv.iva = round2(sumProds * 0.16);
-            }
-            inv.totalOperacion = round2(sumProds + (inv.iva || 0));
+            inv.totalOperacion = round2(sumProds);
             
             next[invIdx] = inv;
             return next;
@@ -727,9 +726,6 @@ export function ExcelImportView() {
                                                         Conversión Gemini Vision
                                                     </div>
                                                     <span className="text-xs text-muted-foreground">Tasa fijada y aplicada: <span className="font-mono font-bold text-amber-500">{Number(inv.tasaAplicada || 0).toFixed(2)} Bs/$</span></span>
-                                                    {inv.iva != null && inv.iva > 0 && (
-                                                        <span className="text-xs text-muted-foreground">IVA: <span className="font-mono font-semibold text-foreground">$ {fmtUSD(inv.iva)}</span></span>
-                                                    )}
                                                     <span className="ml-auto text-xs text-muted-foreground">Gran Total: <span className="font-mono font-bold text-emerald-500">$ {fmtUSD(inv.totalOperacion)}</span></span>
                                                 </div>
                                             )}
@@ -791,20 +787,11 @@ export function ExcelImportView() {
                                         <div className="border-t border-border bg-muted/20 shrink-0 rounded-b-2xl">
                                             <table className="w-full text-sm">
                                                 <tfoot>
-                                                    {/* Subtotal row */}
                                                     <tr className="border-b border-border/30">
-                                                        <td colSpan={3} className="px-6 py-3.5 text-right text-xs font-bold text-muted-foreground uppercase tracking-widest">Subtotal productos</td>
+                                                        <td colSpan={3} className="px-6 py-3.5 text-right text-xs font-bold text-muted-foreground uppercase tracking-widest">Total productos</td>
                                                         <td className="px-6 py-3.5 text-right font-mono text-sm font-bold text-foreground pr-5">$ {fmtUSD(round2(inv.products.reduce((s, p) => s + (p.subtotal !== undefined ? p.subtotal : p.cantidad * p.precio), 0)))}</td>
                                                         <td className="w-10"></td>
                                                     </tr>
-                                                    {/* IVA row */}
-                                                    {inv.iva != null && inv.iva > 0 && (
-                                                        <tr className="border-b border-border/30">
-                                                            <td colSpan={3} className="px-6 py-3 text-right text-[11px] font-black uppercase tracking-widest text-muted-foreground">IVA (16%)</td>
-                                                            <td className="px-6 py-3 text-right font-mono text-[15px] text-amber-500 font-bold pr-5">$ {fmtUSD(inv.iva)}</td>
-                                                            <td className="w-10"></td>
-                                                        </tr>
-                                                    )}
                                                     {/* Gran Total */}
                                                     <tr className="bg-gradient-to-r from-[#635BFF]/10 via-[#635BFF]/5 to-transparent shadow-[inset_0_2px_15px_rgba(99,91,255,0.05)] rounded-b-2xl">
                                                         <td colSpan={3} className="px-6 py-5 text-right text-xs font-black uppercase tracking-widest text-[#635BFF]">Gran Total</td>

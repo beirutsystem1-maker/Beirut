@@ -114,7 +114,6 @@ export function AssignCreditModal({ isOpen, onClose, invoice, onAssign }: Assign
                 issueDate: normalizeToISO(invoice.fechaEmision),
                 dueDate: dueDate,
                 totalAmount: invoice.totalOperacion,
-                iva: (invoice as any).iva || 0,
                 products: invoice.products || []
             });
 

@@ -407,6 +407,14 @@ export function useAppendExcelInvoice() {
                 }))
                 : [{ description: 'Deuda Asignada', quantity: 1, unit_price: totalAmount - iva }];
 
+            const fallbackTotal = totalAmount || 0;
+            const computedSubtotal = formattedProducts.reduce((sum, p) => sum + (p.quantity * p.unit_price), 0);
+            
+            // If we have products with prices, use their sum (which already includes IVA). 
+            // If it's a degenerate case (0 sum), fallback to totalAmount
+            const finalTotal = computedSubtotal > 0 ? computedSubtotal : fallbackTotal;
+            const finalBalance = finalTotal;
+
             if (USE_SUPABASE_DIRECT && supabase) {
                 // 1. Create Invoice
                 const { data: invData, error: invError } = await supabase
@@ -416,8 +424,8 @@ export function useAppendExcelInvoice() {
                         valery_note_id: docNumber,
                         issue_date: issueDate,
                         due_date: dueDate,
-                        total_amount: totalAmount,
-                        balance: totalAmount,
+                        total_amount: Math.round(finalTotal * 100) / 100,
+                        balance: Math.round(finalBalance * 100) / 100,
                         status
                     })
                     .select()
@@ -444,9 +452,8 @@ export function useAppendExcelInvoice() {
                         valery_note_id: docNumber,
                         issue_date: issueDate,
                         due_date: dueDate,
-                        total_amount: totalAmount,
-                        iva: iva,
-                        balance: totalAmount,
+                        total_amount: Math.round(finalTotal * 100) / 100,
+                        balance: Math.round(finalBalance * 100) / 100,
                         status,
                         products: formattedProducts
                     })
@@ -716,10 +723,8 @@ export function useUpdateInvoiceProducts() {
                 const previousTotal = Number(invRow.total_amount) || 0;
                 const previousBalance = Number(invRow.balance) || 0;
 
-                // Recalculate totals
-                const subtotal = products.reduce((s, p) => s + p.quantity * p.unit_price, 0);
-                const iva = apply_iva ? Math.round(subtotal * 0.16 * 100) / 100 : 0;
-                const total = Math.round((subtotal + iva) * 100) / 100;
+                // Recalculate totals (IVA is already embedded in prices now)
+                const total = products.reduce((s, p) => s + p.quantity * p.unit_price, 0);
 
                 // Calculate new balance: apply the same delta to balance as to total_amount
                 const delta = total - previousTotal;

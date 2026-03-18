@@ -619,10 +619,15 @@ export function useUpdateInvoiceDueDate() {
     return useMutation({
         mutationFn: async ({ clientId: _clientId, invoiceId, dueDate }: { clientId?: string; invoiceId: string; dueDate: string }) => {
             if (USE_SUPABASE_DIRECT && supabase) {
+                let resolvedInvoiceId = invoiceId;
+                if (!resolvedInvoiceId.includes('-')) {
+                    const { data: realInvoice } = await supabase.from('invoices').select('id').eq('valery_note_id', invoiceId).single();
+                    if (realInvoice) resolvedInvoiceId = realInvoice.id;
+                }
                 const { error } = await supabase
                     .from('invoices')
                     .update({ due_date: dueDate, updated_at: new Date().toISOString() })
-                    .eq('id', invoiceId);
+                    .eq('id', resolvedInvoiceId);
                 if (error) throw error;
                 return { success: true };
             }
@@ -661,10 +666,16 @@ export function useUpdateInvoiceProducts() {
             apply_iva?: boolean;
         }) => {
             if (USE_SUPABASE_DIRECT && supabase) {
+                let resolvedInvoiceId = invoiceId;
+                if (!resolvedInvoiceId.includes('-')) {
+                    const { data: realInvoice } = await supabase.from('invoices').select('id').eq('valery_note_id', invoiceId).single();
+                    if (realInvoice) resolvedInvoiceId = realInvoice.id;
+                }
+
                 const { data: invRow } = await supabase
                     .from('invoices')
                     .select('id, total_amount, balance, due_date')
-                    .eq('id', invoiceId)
+                    .eq('id', resolvedInvoiceId)
                     .single();
 
                 if (!invRow) throw new Error('Factura no encontrada');
@@ -729,11 +740,17 @@ export function useDeleteInvoice() {
     return useMutation({
         mutationFn: async ({ invoiceId }: { invoiceId: string; clientId: string }) => {
             if (USE_SUPABASE_DIRECT && supabase) {
+                let resolvedInvoiceId = invoiceId;
+                if (!resolvedInvoiceId.includes('-')) {
+                    const { data: realInvoice } = await supabase.from('invoices').select('id').eq('valery_note_id', invoiceId).single();
+                    if (realInvoice) resolvedInvoiceId = realInvoice.id;
+                }
+
                 // 1. Eliminar pagos relacionados (FK: payments.invoice_id)
                 const { error: payErr } = await supabase
                     .from('payments')
                     .delete()
-                    .eq('invoice_id', invoiceId);
+                    .eq('invoice_id', resolvedInvoiceId);
                 if (payErr) {
                     console.warn('[DeleteInvoice] Error al eliminar pagos:', payErr.message);
                     // No lanzar — si no hay pagos o la tabla es diferente, continúa
@@ -743,14 +760,14 @@ export function useDeleteInvoice() {
                 const { error: prodErr } = await supabase
                     .from('invoice_products')
                     .delete()
-                    .eq('invoice_id', invoiceId);
+                    .eq('invoice_id', resolvedInvoiceId);
                 if (prodErr) throw new Error(`Error al eliminar productos: ${prodErr.message}`);
 
                 // 3. Eliminar la factura
                 const { error } = await supabase
                     .from('invoices')
                     .delete()
-                    .eq('id', invoiceId);
+                    .eq('id', resolvedInvoiceId);
                 if (error) throw new Error(`Error al eliminar factura: ${error.message}`);
                 return { success: true };
             }

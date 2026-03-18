@@ -669,19 +669,6 @@ export function useUpdateInvoiceDueDate() {
             return res.json();
         },
         onSuccess: (_data, variables) => {
-            queryClient.setQueryData(['clients', 0, 50], (oldData: any) => {
-                if (!oldData || !oldData.data) return oldData;
-                return {
-                    ...oldData,
-                    data: oldData.data.map((c: Client) => {
-                        if (c.id !== variables.clientId) return c;
-                        return {
-                            ...c,
-                            invoices: (c.invoices || []).map((inv: Invoice) => inv.id === variables.invoiceId || inv.valeryNoteId === variables.invoiceId ? { ...inv, dueDate: variables.dueDate } : inv)
-                        };
-                    })
-                };
-            });
             queryClient.invalidateQueries({ queryKey: ['clients'] });
             if (variables.clientId) {
                 queryClient.invalidateQueries({ queryKey: ['invoices', variables.clientId] });
@@ -770,30 +757,7 @@ export function useUpdateInvoiceProducts() {
             if (!res.ok) throw new Error('Error al actualizar productos de la factura');
             return res.json();
         },
-        onSuccess: (data, variables) => {
-            queryClient.setQueryData(['clients', 0, 50], (oldData: any) => {
-                if (!oldData || !oldData.data) return oldData;
-                return {
-                    ...oldData,
-                    data: oldData.data.map((c: Client) => {
-                        if (c.id !== variables.clientId) return c;
-                        return {
-                            ...c,
-                            invoices: (c.invoices || []).map((inv: Invoice) => {
-                                if (inv.id === variables.invoiceId || inv.valeryNoteId === variables.invoiceId) {
-                                    return {
-                                        ...inv,
-                                        products: variables.products,
-                                        totalAmount: data.total_amount ?? inv.totalAmount,
-                                        balance: data.balance ?? inv.balance
-                                    };
-                                }
-                                return inv;
-                            })
-                        };
-                    })
-                };
-            });
+        onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
             if (variables.clientId) {
                 queryClient.invalidateQueries({ queryKey: ['invoices', variables.clientId] });
@@ -856,19 +820,6 @@ export function useDeleteInvoice() {
             return res.json();
         },
         onSuccess: (_data, variables) => {
-            queryClient.setQueryData(['clients', 0, 50], (oldData: any) => {
-                if (!oldData || !oldData.data) return oldData;
-                return {
-                    ...oldData,
-                    data: oldData.data.map((c: Client) => {
-                        if (c.id !== variables.clientId) return c;
-                        return {
-                            ...c,
-                            invoices: (c.invoices || []).filter((inv: Invoice) => inv.id !== variables.invoiceId && inv.valeryNoteId !== variables.invoiceId)
-                        };
-                    })
-                };
-            });
             queryClient.invalidateQueries({ queryKey: ['clients'] });
             queryClient.invalidateQueries({ queryKey: ['invoices', variables.clientId] });
             queryClient.invalidateQueries({ queryKey: ['client', 'full', variables.clientId] });

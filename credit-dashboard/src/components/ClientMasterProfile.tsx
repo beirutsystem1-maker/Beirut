@@ -1356,29 +1356,29 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                         Registrar Pago
                     </button>
                 </div>
-
-                {/* Invoice detail sub-modal */}
-                {(() => {
-                    if (!selectedInvoiceId) return null;
-                    const invoiceData = invoicesWithOverrides.find(i => i.id === selectedInvoiceId);
-                    if (!invoiceData) {
-                        // Automatically close if the invoice disappeared (e.g. after successful delete)
-                        setTimeout(() => setSelectedInvoiceId(null), 0);
-                        return null;
-                    }
-                    return (
-                        <InvoiceDetailModal
-                            invoice={invoiceData}
-                            onClose={() => setSelectedInvoiceId(null)}
-                            showBaseDebt={showBaseDebt}
-                            showSurchargeDebt={showSurchargeDebt}
-                            surchargePercent={typeof surchargePercent === 'number' ? surchargePercent : parseFloat(surchargePercent as string) || 0}
-                            clientId={client.id}
-                            onInvoiceUpdated={handleInvoiceUpdated}
-                        />
-                    );
-                })()}
             </div>
+
+            {/* Invoice detail sub-modal */}
+            {(() => {
+                if (!selectedInvoiceId) return null;
+                const invoiceData = invoicesWithOverrides.find(i => i.id === selectedInvoiceId);
+                if (!invoiceData) {
+                    // Automatically close if the invoice disappeared (e.g. after successful delete)
+                    setTimeout(() => setSelectedInvoiceId(null), 0);
+                    return null;
+                }
+                return (
+                    <InvoiceDetailModal
+                        invoice={invoiceData}
+                        onClose={() => setSelectedInvoiceId(null)}
+                        showBaseDebt={showBaseDebt}
+                        showSurchargeDebt={showSurchargeDebt}
+                        surchargePercent={typeof surchargePercent === 'number' ? surchargePercent : parseFloat(surchargePercent as string) || 0}
+                        clientId={client.id}
+                        onInvoiceUpdated={handleInvoiceUpdated}
+                    />
+                );
+            })()}
 
             {/* Global payment modal */}
             {showPaymentModal && (

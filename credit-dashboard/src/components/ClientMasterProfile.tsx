@@ -54,6 +54,22 @@ function InvoiceRow({ invoice, onSelect, showBaseDebt, showSurchargeDebt }: { in
                         </div>
                     </div>
                 </div>
+                {/* Header Actions */}
+                <div className="flex items-center gap-2 relative mt-3 sm:mt-0 w-full sm:w-auto overflow-visible pr-10">
+                    {/* Assuming saveError and saveSuccess are states managed in a parent component or context,
+                        or this InvoiceRow is part of a larger editable component where these states exist.
+                        For this snippet, we'll assume they are available in scope or will be added. */}
+                    {/* {saveError && (
+                        <div className="absolute top-[-35px] right-0 bg-rose-100 text-rose-700 text-xs px-3 py-1.5 rounded-md font-bold shadow-sm whitespace-nowrap animate-slide-down">
+                            {saveError}
+                        </div>
+                    )}
+                    {saveSuccess && (
+                        <div className="absolute top-[-35px] right-0 bg-emerald-100 text-emerald-700 text-xs px-3 py-1.5 rounded-md font-bold shadow-sm whitespace-nowrap animate-slide-down">
+                            ¡Guardado!
+                        </div>
+                    )} */}
+                </div>
                 <div className="flex items-center justify-end gap-3 sm:gap-4 w-full sm:w-auto">
                     <div className="text-right flex-1 sm:flex-none">
                         <div className="flex flex-col items-end">
@@ -400,6 +416,13 @@ function InvoiceDetailModal({
                             {editedProducts.length === 0 && (
                                 <div className="flex items-center justify-center h-32 text-[13px] font-medium text-gray-400">
                                     Sin productos en este desglose
+                                </div>
+                            )}
+                            {saveError && (
+                                <div className="mt-4 flex justify-center w-full">
+                                    <span className="bg-rose-50 text-rose-600 text-[11px] font-bold px-3 py-1 rounded-full animate-fade-in flex items-center gap-1.5">
+                                        {saveError}
+                                    </span>
                                 </div>
                             )}
                             
@@ -1127,9 +1150,13 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                     className="p-1.5 rounded-full bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors shrink-0 disabled:opacity-50"
                                     title="Guardar cambios"
                                     onClick={async () => {
-                                        // Validar campos nativos manualmente antes de guardar
-                                        const emailInput = document.getElementById('editEmail') as HTMLInputElement;
-                                        if (emailInput && !emailInput.reportValidity()) return;
+                                        const emailValue = editData.email?.trim();
+                                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                                        
+                                        if (emailValue && !emailRegex.test(emailValue)) {
+                                            setUpdateError('El correo electrónico no es válido. Déjalo vacío si no aplica.');
+                                            return;
+                                        }
 
                                         const nameInput = document.getElementById('editName') as HTMLInputElement;
                                         if (nameInput && !nameInput.reportValidity()) return;
@@ -1165,11 +1192,14 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                         id="editPhone"
                                     />
                                     <input
-                                        type="email"
+                                        type="text"
                                         placeholder="Correo electrónico"
                                         value={editData.email}
-                                        onChange={e => setEditData({ ...editData, email: e.target.value })}
-                                        className="bg-background/90 px-2 py-0.5 rounded-md border border-accent/50 focus:outline-none focus:ring-1 focus:ring-accent w-48"
+                                        onChange={e => {
+                                            setEditData({ ...editData, email: e.target.value });
+                                            if (updateError?.includes('correo')) setUpdateError(null);
+                                        }}
+                                        className={`bg-background/90 px-2 py-0.5 rounded-md border focus:outline-none focus:ring-1 w-48 ${updateError?.includes('correo') ? 'border-rose-500 focus:ring-rose-500/50 text-rose-600 bg-rose-50' : 'border-accent/50 focus:ring-accent'}`}
                                         id="editEmail"
                                     />
                                     <input

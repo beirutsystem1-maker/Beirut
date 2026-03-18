@@ -307,6 +307,12 @@ export function useUpdateClient() {
 
     return useMutation({
         mutationFn: async (payload: { id: string } & Partial<Omit<Client, 'id' | 'invoices'>>) => {
+            if (payload.email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(payload.email.trim())) {
+                    throw new Error('Correo electrónico inválido');
+                }
+            }
             if (USE_SUPABASE_DIRECT && supabase) {
                 console.log('Sending payload to Supabase:', payload);
                 const { data, error } = await supabase

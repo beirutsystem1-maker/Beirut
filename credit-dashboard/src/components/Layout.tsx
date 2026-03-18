@@ -41,7 +41,7 @@ export function Layout({
 }) {
     const { theme, setTheme } = useTheme();
     const { settings } = useSettings();
-    const { rate, parallelRate, setManualRate, setManualBcvRate, isLoading: isLoadingRate } = useBCV();
+    const { rate, parallelRate, setManualRate, setManualBcvRate, isLoading: isLoadingRate, lastUpdated, isStale } = useBCV();
     
     // Se inicializa desde localStorage, o true por defecto para que siempre esté colapsado como pidió el usuario
     const [collapsed, setCollapsed] = useState(() => {
@@ -233,43 +233,52 @@ export function Layout({
                     {/* Right: actions */}
                     <div className="flex items-center gap-3 flex-shrink-0">
                         {/* Global BCV Rate Input (Ambar) */}
-                        <div className={`hidden sm:flex items-center rounded-full px-3 h-9 transition-all duration-300 relative group overflow-hidden ${isBcvRateUnlocked ? 'bg-amber-500/10 border border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.25)] ring-2 ring-amber-500/20' : 'bg-muted/40 border border-border/60 hover:border-border/80'}`}>
+                        <div 
+                            className={`hidden sm:flex items-center rounded-full px-3 h-9 transition-all duration-300 relative group overflow-hidden ${isBcvRateUnlocked ? 'bg-amber-500/10 border border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.25)] ring-2 ring-amber-500/20' : isStale ? 'bg-rose-500/10 border border-rose-500/50' : 'bg-muted/40 border border-border/60 hover:border-border/80'}`}
+                            title={lastUpdated ? `Actualizada: ${lastUpdated.toLocaleString('es-VE')}${isStale ? ' ⚠️ ADVERTENCIA: Tasa desactualizada (más de 1 min)' : ''}` : 'Obteniendo tasa...'}
+                        >
                             <div className="absolute inset-0 bg-gradient-to-r from-amber-500/0 via-amber-500/10 to-amber-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-in-out pointer-events-none" />
                             
                             <div className="flex items-center gap-1.5 mr-2">
-                                <div className={`w-1.5 h-1.5 rounded-full ${isBcvRateUnlocked ? 'bg-amber-500 animate-pulse' : 'bg-amber-500/60'}`} />
+                                <div className={`w-1.5 h-1.5 rounded-full ${isBcvRateUnlocked || isStale ? 'bg-amber-500 animate-pulse' : 'bg-amber-500/60'}`} />
                                 <span className={`text-[10px] font-black uppercase tracking-widest leading-none ${isBcvRateUnlocked ? 'text-amber-500' : 'text-amber-500/80'}`}>BCV</span>
                             </div>
                             
-                            <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={tasaBcvInputValue}
-                                readOnly={!isBcvRateUnlocked}
-                                onChange={(e) => setTasaBcvInputValue(e.target.value)}
-                                onBlur={(e) => {
-                                    const val = parseFloat(e.target.value);
-                                    if (!isNaN(val) && val > 0) {
-                                        setManualBcvRate(val);
-                                    } else {
-                                        setTasaBcvInputValue(rate.toString());
-                                    }
-                                    setIsBcvRateUnlocked(false);
-                                }}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        e.currentTarget.blur();
-                                    }
-                                    if (e.key === 'Escape') {
-                                        setTasaBcvInputValue(rate.toString());
-                                        e.currentTarget.blur();
-                                    }
-                                }}
-                                className={`w-16 bg-transparent text-sm font-mono font-bold focus:outline-none placeholder:text-muted-foreground/50 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isBcvRateUnlocked ? 'text-amber-500' : 'text-foreground'}`}
-                                title={isBcvRateUnlocked ? 'Editar Tasa BCV Oficial (Sobrescribe API)' : 'Tasa BCV Oficial (Automática) Bloqueada'}
-                                placeholder="Tasa"
-                            />
+                            <div className="flex flex-col items-start leading-none gap-0.5">
+                                <input
+                                    type="number"
+                                    step="0.0001"
+                                    min="0"
+                                    value={tasaBcvInputValue}
+                                    readOnly={!isBcvRateUnlocked}
+                                    onChange={(e) => setTasaBcvInputValue(e.target.value)}
+                                    onBlur={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        if (!isNaN(val) && val > 0) {
+                                            setManualBcvRate(val);
+                                        } else {
+                                            setTasaBcvInputValue(rate.toString());
+                                        }
+                                        setIsBcvRateUnlocked(false);
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.currentTarget.blur();
+                                        }
+                                        if (e.key === 'Escape') {
+                                            setTasaBcvInputValue(rate.toString());
+                                            e.currentTarget.blur();
+                                        }
+                                    }}
+                                    className={`w-20 bg-transparent text-[13px] font-mono font-bold focus:outline-none placeholder:text-muted-foreground/50 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isBcvRateUnlocked ? 'text-amber-500' : 'text-foreground'}`}
+                                    placeholder="Tasa"
+                                />
+                                {lastUpdated && (
+                                    <span className={`text-[7px] font-bold uppercase tracking-tighter ${isStale ? 'text-rose-500' : 'text-muted-foreground/60'}`}>
+                                        {isStale ? '⚠️ ' : ''}{lastUpdated.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                )}
+                            </div>
                             
                             <button
                                 onClick={() => setIsBcvRateUnlocked(!isBcvRateUnlocked)}
@@ -279,7 +288,7 @@ export function Layout({
                                 {isBcvRateUnlocked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3 h-3" />}
                             </button>
 
-                            {isLoadingRate && <span className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-amber-500 to-transparent animate-pulse" title="Actualizando tasa BCV..." />}
+                            {(isLoadingRate || isStale) && <span className={`absolute bottom-0 left-0 w-full h-[2px] ${isStale ? 'bg-rose-500' : 'bg-gradient-to-r from-transparent via-amber-500 to-transparent'} animate-pulse`} />}
                         </div>
 
                         {/* Global Parallel Rate Input (Azul/Violeta) */}

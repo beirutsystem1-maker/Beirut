@@ -5,13 +5,16 @@ interface UseBCVRateReturn {
   parallelRate: number; // Tasa paralela — editable manualmente, persiste
   isLoading: boolean;
   error: string | null;
+  lastUpdated: Date | null;
+  source: string;
+  isStale: boolean;
   refresh: () => void;
-  setManualRate: (rate: number | null) => void; // Solo afecta parallelRate
-  setManualBcvRate: (rate: number | null) => void; // Afecta tasa BCV oficial
+  setManualRate: (rate: number | null) => void;
+  setManualBcvRate: (rate: number | null) => void;
 }
 
 const BCV_API_URL = 'https://ve.dolarapi.com/v1/dolares';
-const ONE_HOUR_MS = 60 * 60 * 1000;
+const ONE_MINUTE_MS = 60 * 1000;
 const DEFAULT_BCV = 42.50;
 const DEFAULT_PARALLEL = 52.00;
 
@@ -38,6 +41,12 @@ export function useBCVRate(): UseBCVRateReturn {
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(() => {
+    const saved = localStorage.getItem('bcv_rate_updated');
+    return saved ? new Date(saved) : null;
+  });
+  const [source, setSource] = useState<string>('BCV via DolarAPI');
+  const [isStale, setIsStale] = useState<boolean>(false);
 
   // ── setManualRate: solo cambia parallelRate ───────────────────────
   const setManualRate = useCallback((newRate: number | null) => {
@@ -104,7 +113,12 @@ export function useBCVRate(): UseBCVRateReturn {
           }
         }
 
-        localStorage.setItem('bcv_rate_updated', new Date().toISOString());
+
+        const now = new Date();
+        setLastUpdated(now);
+        localStorage.setItem('bcv_rate_updated', now.toISOString());
+        setSource('BCV via DolarAPI');
+        setIsStale(false);
       }
     } catch (err) {
       console.error('Error fetching BCV rate:', err);
@@ -120,9 +134,20 @@ export function useBCVRate(): UseBCVRateReturn {
 
   // ── Efecto: fetch al montar + cada 1 hora ────────────────────────
   useEffect(() => {
-    const savedUpdated = localStorage.getItem('bcv_rate_updated');
-    const lastUpdate = savedUpdated ? new Date(savedUpdated) : null;
-    const shouldRefreshNow = !lastUpdate || (Date.now() - lastUpdate.getTime()) > ONE_HOUR_MS;
+    const checkStaleness = () => {
+      if (!lastUpdated) {
+        setIsStale(true);
+        return;
+      }
+      const diff = Date.now() - lastUpdated.getTime();
+      setIsStale(diff > ONE_MINUTE_MS);
+    };
+
+    // Check immediately and then every 10 seconds
+    checkStaleness();
+    const staleInterval = setInterval(checkStaleness, 10000);
+
+    const shouldRefreshNow = !lastUpdated || (Date.now() - lastUpdated.getTime()) > ONE_MINUTE_MS;
 
     if (shouldRefreshNow) {
       fetchRate();
@@ -130,19 +155,25 @@ export function useBCVRate(): UseBCVRateReturn {
       setIsLoading(false);
     }
 
-    // Refresco automático cada hora mientras la pestaña está abierta
+    // Refresco automático cada 1 minuto mientras la pestaña está abierta
     const intervalId = setInterval(() => {
       fetchRate();
-    }, ONE_HOUR_MS);
+    }, ONE_MINUTE_MS);
 
-    return () => clearInterval(intervalId);
-  }, [fetchRate]);
+    return () => {
+      clearInterval(intervalId);
+      clearInterval(staleInterval);
+    };
+  }, [fetchRate, lastUpdated]);
 
   return {
     rate,
     parallelRate,
     isLoading,
     error,
+    lastUpdated,
+    source,
+    isStale,
     refresh: fetchRate,
     setManualRate,
     setManualBcvRate,

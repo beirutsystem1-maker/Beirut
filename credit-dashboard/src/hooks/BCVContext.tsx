@@ -6,6 +6,9 @@ interface BCVContextType {
   parallelRate: number;
   isLoading: boolean;
   error: string | null;
+  lastUpdated: Date | null;
+  source: string;
+  isStale: boolean;
   refresh: () => void;
   setManualRate: (rate: number | null) => void;
   setManualBcvRate: (rate: number | null) => void;
@@ -14,10 +17,10 @@ interface BCVContextType {
 const BCVContext = createContext<BCVContextType | undefined>(undefined);
 
 export function BCVProvider({ children }: { children: ReactNode }) {
-  const { rate, parallelRate, isLoading, error, refresh, setManualRate, setManualBcvRate } = useBCVRate();
+  const { rate, parallelRate, isLoading, error, lastUpdated, source, isStale, refresh, setManualRate, setManualBcvRate } = useBCVRate();
 
   return (
-    <BCVContext.Provider value={{ rate, parallelRate, isLoading, error, refresh, setManualRate, setManualBcvRate }}>
+    <BCVContext.Provider value={{ rate, parallelRate, isLoading, error, lastUpdated, source, isStale, refresh, setManualRate, setManualBcvRate }}>
       {children}
     </BCVContext.Provider>
   );

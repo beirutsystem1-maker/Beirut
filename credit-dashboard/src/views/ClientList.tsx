@@ -506,22 +506,23 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         const { client, deudaBCV, deudaParalela, activeInvoices, relevantPayments } = rateConfirmData;
 
         const EM = {
-            building:  '\uD83C\uDFE2',  // 🏢
-            person:    '\uD83D\uDC64',  // 👤
-            calendar:  '\uD83D\uDCC5',  // 📅
-            receipt:   '\uD83E\uDDFE',  // 🧾
-            check:     '\u2705',        // ✅
-            chart:     '\uD83D\uDCCA',  // 📊
-            money:     '\uD83D\uDCB5',  // 💵
-            bank:      '\uD83C\uDFE6',  // 🏦
-            red:       '\uD83D\uDD34',  // 🔴
-            green:     '\uD83D\uDFE2',  // 🟢
-            date:      '\uD83D\uDCC6',  // 📆
-            bullet:    '\u2022',        // •
+            building:  '',
+            person:    '',
+            calendar:  '',
+            receipt:   '',
+            check:     '',
+            chart:     '',
+            money:     '',
+            bank:      '',
+            red:       '',
+            green:     '',
+            date:      '',
+            bullet:    '-',
         };
 
-        const SEP = '\u2501'.repeat(21);
+        const SEP = '---------------------';
 
+        const factor = rateMode === 'bcv' ? (1 + surchargePercent / 100) : 1;
         const deuda = rateMode === 'bcv' ? deudaBCV : deudaParalela;
         const fmtNum = (n: number) => new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
         const fmtDate = (d: string) => parseLocalDate(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short' });
@@ -530,14 +531,14 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         const todayDate = new Date();
         const totalPaid = relevantPayments.reduce((acc, p) => acc + (p.amountUsd || p.amount || 0), 0);
 
-        let msg = `${EM.building} *BEIRUT* \u00B7 Estado de Cuenta\n`;
+        let msg = `*BEIRUT* \u00B7 Estado de Cuenta\n`;
         msg += `${SEP}\n`;
-        msg += `${EM.person} *${client.name}*\n`;
-        msg += `${EM.calendar} ${fmtLongDate(todayDate)}\n`;
+        msg += `*${client.name}*\n`;
+        msg += `${fmtLongDate(todayDate)}\n`;
         msg += `${SEP}\n`;
-        msg += `${EM.receipt} *FACTURAS ACTIVAS*\n\n`;
+        msg += `*FACTURAS ACTIVAS*\n\n`;
 
-        // Sort ascending by due date
+        // Incluimos todas las facturas pendientes o en mora
         const sortedInvoices = [...activeInvoices].sort((a, b) => parseLocalDate(a.dueDate).getTime() - parseLocalDate(b.dueDate).getTime());
 
         sortedInvoices.forEach(inv => {
@@ -546,42 +547,45 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
             const prodDesc = mainProd ? `${mainProd.description}` : 'Productos varios';
             const prodQty = mainProd ? mainProd.quantity : 1;
             
+            // Subtotal de la factura incluyendo el factor de recargo (IVA)
+            const lineTotal = inv.totalAmount * factor;
+            
             msg += `*#${inv.valeryNoteId}* \u00B7 ${statusLabel}\n`;
-            msg += `  ${EM.bullet} ${prodQty}x ${prodDesc} ........ $${fmtNum(inv.totalAmount)}\n`;
-            msg += `  \u2514\u2500 Subtotal: *$${fmtNum(inv.totalAmount)}*\n\n`;
+            msg += `  ${EM.bullet} ${prodQty}x ${prodDesc} ........ $${fmtNum(lineTotal)}\n`;
+            msg += `  L Subtotal: *$${fmtNum(lineTotal)}*\n\n`;
         });
 
         if (relevantPayments.length > 0) {
             msg += `${SEP}\n`;
-            msg += `${EM.check} *PAGOS RECIBIDOS*\n`;
+            msg += `*PAGOS RECIBIDOS*\n`;
             relevantPayments.forEach(p => {
                 const pAmount = p.amountUsd || p.amount || 0;
                 const pDate = p.createdAt || p.payment_date || '';
                 msg += `  ${EM.bullet} ${pDate ? fmtDate(pDate.split('T')[0]) : '--'} \u00B7 ${p.paymentMethod || p.method || 'Pago'} .... $${fmtNum(pAmount)}\n`;
             });
-            msg += `  \u2514\u2500 Total pagado: *$${fmtNum(totalPaid)}*\n\n`;
+            msg += `  L Total pagado: *$${fmtNum(totalPaid)}*\n\n`;
         }
 
         msg += `${SEP}\n`;
-        msg += `${EM.chart} *RESUMEN*\n`;
-        msg += `  ${EM.money} Total deuda:     $${fmtNum(deuda + totalPaid)}\n`;
-        if (totalPaid > 0) msg += `  ${EM.check} Cancelado:       $${fmtNum(totalPaid)}\n`;
+        msg += `*RESUMEN*\n`;
+        msg += `  Total deuda:     $${fmtNum(deuda + totalPaid)}\n`;
+        if (totalPaid > 0) msg += `  Cancelado:       $${fmtNum(totalPaid)}\n`;
         
         if (deuda > 0) {
-            msg += `  ${EM.red} *Saldo pendiente: $${fmtNum(deuda)}*\n\n`;
+            msg += `  *Saldo pendiente: $${fmtNum(deuda)}*\n\n`;
         } else {
-            msg += `  ${EM.green} *A su favor:     $${fmtNum(Math.abs(deuda))}*\n\n`;
+            msg += `  *A su favor:     $${fmtNum(Math.abs(deuda))}*\n\n`;
         }
 
         if (rateMode === 'bcv') {
             const bsBCV = Math.abs(deuda) * tasaBCV;
-            msg += `${EM.bank} *En Bol\u00EDvares (BCV ${fmtNum(tasaBCV)} Bs/$):*\n`;
+            msg += `*En Bol\u00EDvares (BCV ${fmtNum(tasaBCV)} Bs/$):*\n`;
             msg += `  ${deuda <= 0 ? 'A favor' : 'Debe'} \u2192 *Bs. ${fmtNum(bsBCV)}*\n`;
         }
 
         msg += `${SEP}\n`;
         msg += `_Beirut \u00B7 Sistema de Cr\u00E9ditos_\n`;
-        msg += `_${EM.date} Generado: ${fmtLongDate(todayDate)}_`;
+        msg += `_Generado: ${fmtLongDate(todayDate)}_`;
 
         const normalized = normalizePhone(client.phone);
         window.open(`https://wa.me/${normalized}?text=${encodeURIComponent(msg)}`, '_blank');

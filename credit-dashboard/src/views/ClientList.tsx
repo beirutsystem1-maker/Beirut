@@ -560,13 +560,14 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
 
             if (products.length > 0) {
                 products.forEach((p: any) => {
-                    const qty   = Number(p.quantity) || 1;
-                    const price = Number(p.price ?? p.precio ?? p.unitPrice) || 0;
-                    const desc  = String(p.description ?? p.nombre ?? p.name ?? 'Producto');
-                    msg += `  ${EM.bullet} ${qty}x ${desc} ........ $${fmtNum(qty * price)}\n`;
+                    const qty        = Number(p.quantity) || 1;
+                    const priceBase  = Number(p.price ?? p.precio ?? p.unitPrice) || 0;
+                    const priceAdj   = priceBase * factor; // aplica recargo BCV o precio base Paralela
+                    const desc       = String(p.description ?? p.nombre ?? p.name ?? 'Producto');
+                    msg += `  ${EM.bullet} ${qty}x ${desc} ........ $${fmtNum(qty * priceAdj)}\n`;
                 });
             } else {
-                msg += `  ${EM.bullet} Productos varios ........ $${fmtNum(subtotalBase)}\n`;
+                msg += `  ${EM.bullet} Productos varios ........ $${fmtNum(subtotalBase * factor)}\n`;
             }
 
             if (ivaUsd > 0) {

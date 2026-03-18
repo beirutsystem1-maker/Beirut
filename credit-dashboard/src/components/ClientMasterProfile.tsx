@@ -1049,7 +1049,10 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
             className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/40 backdrop-blur-sm animate-fade-in"
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
-            <div className="relative w-full max-w-[520px] bg-card rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-border animate-scale-in">
+            <div 
+                className="relative w-full max-w-[520px] bg-card rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-border animate-scale-in"
+                onClick={(e) => e.stopPropagation()}
+            >
 
                 {/* A. Header */}
                 <div className={`px-6 pt-5 pb-4 relative overflow-hidden transition-colors duration-500 shrink-0
@@ -1116,7 +1119,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                     disabled={isSaving}
                                     className="p-1.5 rounded-full bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors shrink-0 disabled:opacity-50"
                                     title="Guardar cambios"
-                                    onClick={async (e) => {
+                                    onClick={async () => {
                                         // Validar campos nativos manualmente antes de guardar
                                         const emailInput = document.getElementById('editEmail') as HTMLInputElement;
                                         if (emailInput && !emailInput.reportValidity()) return;

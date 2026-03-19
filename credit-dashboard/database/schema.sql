@@ -45,7 +45,7 @@ CREATE TABLE invoice_products (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
     description TEXT NOT NULL,
-    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    quantity NUMERIC(10, 3) NOT NULL CHECK (quantity > 0),
     unit_price NUMERIC(15, 2) NOT NULL CHECK (unit_price >= 0),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

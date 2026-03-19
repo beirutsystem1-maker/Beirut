@@ -79,12 +79,8 @@ function AddClientModal({ onClose, onSave }: { onClose: () => void; onSave: (c: 
 
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let val = e.target.value;
-        if (!val.startsWith('+58 ')) {
-            if (val.startsWith('+58')) val = '+58 ' + val.substring(3).trim();
-            else if (val.startsWith('0')) val = '+58 ' + val.substring(1);
-            else if (val.length > 0 && val !== '+') val = '+58 ' + val.replace(/[^0-9]/g, '');
-            else val = '+58 ';
-        }
+        // Solo permitir '+', números, espacios y guiones
+        val = val.replace(/(?!^\+)[^\d\s-]/g, '');
         setForm(f => ({ ...f, phone: val }));
     };
 
@@ -110,8 +106,8 @@ function AddClientModal({ onClose, onSave }: { onClose: () => void; onSave: (c: 
 
         // Phone Validation (+58 414 1234567 or similar)
         const phoneVal = form.phone.trim();
-        if (!phoneVal || phoneVal === '+58 ') e.phone = 'Teléfono obligatorio';
-        else if (!/^\+?[0-9\s-]{10,17}$/.test(phoneVal)) {
+        if (!phoneVal || phoneVal === '+58' || phoneVal === '+') e.phone = 'Teléfono obligatorio';
+        else if (phoneVal.replace(/\D/g, '').length < 10) {
             e.phone = 'Mínimo 10 dígitos. Ej: +58 414 1234567';
         }
 

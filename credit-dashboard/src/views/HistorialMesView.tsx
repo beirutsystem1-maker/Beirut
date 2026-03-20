@@ -30,6 +30,7 @@ interface FichaEntry {
     clientId: string;
     clientName: string;
     invoiceId: string;
+    valeryNoteId: string;
     estado: EstadoFicha;
     orig: number;       // totalAmount
     pag: number;        // totalAmount - balance  (ya pagado)
@@ -129,7 +130,7 @@ function RegistrarPagoModal({
                     <div>
                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Registrar Pago</p>
                         <p className="font-bold text-gray-900 text-sm mt-0.5">{ficha.clientName}</p>
-                        <p className="font-mono text-xs text-gray-400 mt-0.5">{ficha.invoiceId}</p>
+                        <p className="font-mono text-xs text-gray-400 mt-0.5">{ficha.valeryNoteId || ficha.invoiceId.split('-')[0]}</p>
                     </div>
                     <button onClick={onClose} disabled={registerPayment.isPending} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors mt-0.5">
                         <X className="w-4 h-4" />
@@ -231,7 +232,7 @@ function HistorialPanel({
                 <div className="px-5 pt-4 pb-3 border-b border-gray-100 flex items-start justify-between">
                     <div>
                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Historial de Pagos</p>
-                        <p className="font-mono font-black text-gray-800 text-sm mt-0.5">{ficha.invoiceId}</p>
+                        <p className="font-mono font-black text-gray-800 text-sm mt-0.5">{ficha.valeryNoteId || ficha.invoiceId.split('-')[0]}</p>
                         <p className="text-[11px] text-gray-400">{ficha.clientName}</p>
                     </div>
                     <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors mt-0.5">
@@ -401,7 +402,7 @@ function FichaCard({
                 {/* Row 1: icon + ID + badge + [client name] + delete */}
                 <div className="flex items-center gap-2 mb-2.5">
                     <FileText className={`w-4 h-4 shrink-0 ${ESTADO_ICON_COLOR[ficha.estado]}`} />
-                    <span className="font-mono font-bold text-sm text-gray-800 truncate">{ficha.invoiceId}</span>
+                    <span className="font-mono font-bold text-sm text-gray-800 truncate">{ficha.valeryNoteId || ficha.invoiceId.split('-')[0]}</span>
                     <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 ${ESTADO_CLASSES[ficha.estado]}`}>
                         {ESTADO_LABEL[ficha.estado]}
                     </span>
@@ -511,7 +512,7 @@ function FichaCard({
                             <Trash2 className="w-6 h-6 text-red-500" />
                         </div>
                         <h3 className="font-bold text-lg mb-1.5 text-gray-900">Eliminar Ficha</h3>
-                        <p className="font-mono text-sm font-black text-red-500 mb-2 bg-red-50 px-3 py-1 rounded-lg">{ficha.invoiceId}</p>
+                        <p className="font-mono text-sm font-black text-red-500 mb-2 bg-red-50 px-3 py-1 rounded-lg">{ficha.valeryNoteId || ficha.invoiceId.split('-')[0]}</p>
                         <p className="text-xs text-gray-400 font-medium mb-6">{ficha.clientName}</p>
                         <p className="text-sm text-gray-500 mb-6 leading-relaxed">Esta acción es irreversible y eliminará la ficha permanentemente.</p>
                         <div className="flex gap-3 w-full">
@@ -673,6 +674,7 @@ export function HistorialMesView() {
                     clientId: client.id,
                     clientName: client.name,
                     invoiceId: inv.id,
+                    valeryNoteId: inv.valeryNoteId || '',
                     estado: deriveEstado(inv),
                     orig, pag, saldoBase, total, pct,
                     emision: inv.issueDate,

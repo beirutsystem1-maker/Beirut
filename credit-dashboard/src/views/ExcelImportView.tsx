@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import {
     UploadCloud, X, Package, ChevronDown, ChevronUp,
     Plus, RefreshCw, Sparkles, FileText, Hash,
-    Calendar, DollarSign, Layers, ShoppingCart
+    Calendar, DollarSign, Layers, ShoppingCart, Trash2
 } from 'lucide-react';
 import { AssignCreditModal } from '../components/AssignCreditModal';
 import { useBCV } from '../hooks/BCVContext';
@@ -216,28 +216,12 @@ export function ExcelImportView() {
     const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
     const [invoiceToAssign, setInvoiceToAssign] = useState<InvoiceRow | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-    const [modalPos, setModalPos] = useState<{ top: number; left: number; width: number; openUp: boolean } | null>(null);
 
     const handleExpandCard = (idx: number) => {
         if (expandedIdx === idx) {
             setExpandedIdx(null);
-            setModalPos(null);
             return;
         }
-        const el = cardRefs.current[idx];
-        if (!el) { setExpandedIdx(idx); return; }
-        const rect = el.getBoundingClientRect();
-        const modalHeight = 520; // altura estimada
-        const spaceBelow = window.innerHeight - rect.bottom;
-        setModalPos({
-            top: spaceBelow > modalHeight
-                ? rect.bottom + 8
-                : rect.top - modalHeight - 8,
-            left: rect.left,
-            width: rect.width,
-            openUp: spaceBelow <= modalHeight,
-        });
         setExpandedIdx(idx);
     };
 
@@ -623,7 +607,6 @@ export function ExcelImportView() {
                     return (
                         <div
                             key={idx}
-                            ref={(el) => { cardRefs.current[idx] = el; }}
                             className="rounded-3xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200"
                         >
 
@@ -670,38 +653,37 @@ export function ExcelImportView() {
                                             <p className="font-black text-xl font-mono text-foreground">$ {fmtUSD(inv.totalOperacion)}</p>
                                         )}
                                     </div>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); setInvoiceToAssign({ ...inv }); }}
-                                        className="w-9 h-9 rounded-xl bg-[#635BFF] text-white flex items-center justify-center hover:bg-[#524ae3] hover:scale-110 transition-all shadow-[0_4px_12px_rgba(99,91,255,0.4)]"
-                                        title="Asignar a cliente"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setInvoices(prev => prev.filter((_, i) => i !== idx)); setExpandedIdx(null); }}
+                                            className="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white hover:scale-110 transition-all shadow-sm"
+                                            title="Descartar factura"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setInvoiceToAssign({ ...inv }); }}
+                                            className="w-9 h-9 rounded-xl bg-[#635BFF] text-white flex items-center justify-center hover:bg-[#524ae3] hover:scale-110 transition-all shadow-[0_4px_12px_rgba(99,91,255,0.4)]"
+                                            title="Asignar a cliente"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                     <div className={`w-8 h-8 rounded-xl border border-border flex items-center justify-center text-muted-foreground group-hover:text-foreground transition-colors`}>
                                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                     </div>
                                 </div>
                             </button>
 
-                            {/* Expanded detail — anchored modal */}
-                            {isExpanded && modalPos && (
-                                <>
-                                    {/* Transparent overlay to close on outside click */}
+                            {/* Expanded detail — Centered modal */}
+                            {isExpanded && (
+                                <div
+                                    className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm animate-fade-in flex items-center justify-center p-4 sm:p-6"
+                                    onClick={() => setExpandedIdx(null)}
+                                >
                                     <div
-                                        className="fixed inset-0 z-40"
-                                        onClick={() => { setExpandedIdx(null); setModalPos(null); }}
-                                    />
-                                    <div
-                                        className={`fixed z-50 bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden ${
-                                            modalPos.openUp ? 'animate-[slide-in-from-bottom_0.2s_ease-out]' : 'animate-[slide-in-from-top_0.2s_ease-out]'
-                                        }`}
-                                        style={{
-                                            top: modalPos.top,
-                                            left: modalPos.left,
-                                            width: modalPos.width,
-                                            maxHeight: '75vh',
-                                            minWidth: 480,
-                                        }}
+                                        className="bg-card w-full max-w-4xl border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in"
+                                        style={{ maxHeight: '90vh' }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30 shrink-0 rounded-t-2xl">
@@ -710,7 +692,7 @@ export function ExcelImportView() {
                                                 <p className="text-sm text-muted-foreground mt-0.5">{inv.products.length} producto{inv.products.length !== 1 ? 's' : ''}</p>
                                             </div>
                                             <button
-                                                onClick={() => { setExpandedIdx(null); setModalPos(null); }}
+                                                onClick={() => setExpandedIdx(null)}
                                                 className="p-2 -mr-2 text-muted-foreground hover:bg-muted hover:text-foreground rounded-full transition-colors"
                                             >
                                                 <X className="w-5 h-5" />
@@ -808,7 +790,7 @@ export function ExcelImportView() {
                                             </table>
                                         </div>
                                     </div>
-                                </>
+                                </div>
                             )}
                         </div>
                     );

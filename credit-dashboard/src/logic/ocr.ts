@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { toLocalDateString } from '../utils/dates';
 
-const MODEL_NAME = 'gemini-2.5-flash-lite';
+const MODEL_NAME = 'gemini-2.5-flash';
 
 function buildPrompt(tasa: number) {
     return `Eres un sistema OCR especializado en documentos comerciales venezolanos (facturas, notas de entrega, remisiones, notas de crédito, etc.).

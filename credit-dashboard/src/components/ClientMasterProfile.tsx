@@ -1,6 +1,6 @@
 import {
     X, FileText, AlertCircle, Eye, CheckCircle2,
-    Loader2, RefreshCw, ChevronDown, ChevronUp, Lock, Unlock, EyeOff, Edit2, Save, Trash2, DollarSign, CheckCircle
+    Loader2, RefreshCw, ChevronDown, ChevronUp, Lock, Unlock, EyeOff, Edit2, Save, Trash2, DollarSign, CheckCircle, Plus
 } from 'lucide-react';
 import { useUpdateInvoiceProducts, useDeleteInvoice, useUpdateInvoiceDueDate } from '../logic/useClients';
 import { useState, useEffect, useCallback } from 'react';
@@ -186,6 +186,24 @@ function InvoiceDetailModal({
 
     const removeProduct = (i: number) => {
         setEditedProducts(prev => prev.filter((_, idx) => idx !== i));
+        setSaveSuccess(false);
+    };
+
+    // ── Nuevo producto manual ─────────────────────────────────────────────────
+    const [showNewProductForm, setShowNewProductForm] = useState(false);
+    const [newProductForm, setNewProductForm] = useState({ description: '', quantity: '', unit_price: '' });
+
+    const handleAddNewProduct = () => {
+        const qty = parseFloat(newProductForm.quantity);
+        const price = parseFloat(newProductForm.unit_price);
+        if (!newProductForm.description.trim() || !qty || !price) return;
+        setEditedProducts(prev => [...prev, {
+            description: newProductForm.description.trim(),
+            quantity: String(qty),
+            unit_price: String(price),
+        }]);
+        setNewProductForm({ description: '', quantity: '', unit_price: '' });
+        setShowNewProductForm(false);
         setSaveSuccess(false);
     };
 
@@ -431,6 +449,83 @@ function InvoiceDetailModal({
                                 </div>
                             )}
                         </div>
+
+                        {/* ── Botón + Agregar Producto ───────────────────── */}
+                        {!bcvMode && invoice.status !== 'pagado' && (
+                            <div className="shrink-0 px-4 py-2.5 border-t border-gray-100">
+                                {!showNewProductForm ? (
+                                    <button
+                                        onClick={() => { setShowNewProductForm(true); setSaveSuccess(false); }}
+                                        className="flex items-center gap-1.5 text-[12px] font-semibold text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors w-full justify-center border border-dashed border-indigo-200"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        Agregar Producto
+                                    </button>
+                                ) : (
+                                    <div className="flex flex-col gap-2">
+                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Nuevo producto</p>
+                                        {/* Fila descripción */}
+                                        <input
+                                            type="text"
+                                            placeholder="Descripción del producto"
+                                            value={newProductForm.description}
+                                            onChange={e => setNewProductForm(prev => ({ ...prev, description: e.target.value }))}
+                                            className="text-[12px] font-medium border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-300 text-gray-800 placeholder-gray-300 w-full"
+                                            autoFocus
+                                        />
+                                        {/* Fila cantidad + precio */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div className="relative">
+                                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-semibold pointer-events-none">Cant</span>
+                                                <input
+                                                    type="number"
+                                                    placeholder="0"
+                                                    min={0}
+                                                    value={newProductForm.quantity}
+                                                    onChange={e => setNewProductForm(prev => ({ ...prev, quantity: e.target.value }))}
+                                                    className="text-[12px] font-bold text-right border border-gray-200 rounded-lg pl-8 pr-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-300 w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                />
+                                            </div>
+                                            <div className="relative">
+                                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 font-semibold pointer-events-none">$</span>
+                                                <input
+                                                    type="text"
+                                                    placeholder="0.00"
+                                                    value={newProductForm.unit_price}
+                                                    onChange={e => {
+                                                        const val = e.target.value.replace(',', '.');
+                                                        if (val === '' || !isNaN(Number(val))) setNewProductForm(prev => ({ ...prev, unit_price: val }));
+                                                    }}
+                                                    className="text-[12px] font-bold text-right border border-gray-200 rounded-lg pl-7 pr-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-300 w-full"
+                                                />
+                                            </div>
+                                        </div>
+                                        {/* Total auto-calculado */}
+                                        {parseFloat(newProductForm.quantity) > 0 && parseFloat(newProductForm.unit_price) > 0 && (
+                                            <p className="text-right text-[11px] text-gray-500 font-medium">
+                                                Total: <span className="font-black text-gray-800">${formatNumber((parseFloat(newProductForm.quantity) || 0) * (parseFloat(newProductForm.unit_price) || 0))}</span>
+                                            </p>
+                                        )}
+                                        {/* Acciones */}
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => { setShowNewProductForm(false); setNewProductForm({ description: '', quantity: '', unit_price: '' }); }}
+                                                className="flex-1 h-8 rounded-lg text-[12px] font-bold text-gray-400 hover:text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={handleAddNewProduct}
+                                                disabled={!newProductForm.description.trim() || !(parseFloat(newProductForm.quantity) > 0) || !(parseFloat(newProductForm.unit_price) > 0)}
+                                                className="flex-1 h-8 rounded-lg text-[12px] font-bold bg-indigo-500 text-white hover:bg-indigo-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                                            >
+                                                <Plus className="w-3 h-3" /> Agregar
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                     </div>
 

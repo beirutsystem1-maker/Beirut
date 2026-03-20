@@ -2,7 +2,7 @@ import {
     X, FileText, AlertCircle, Eye, CheckCircle2,
     Loader2, RefreshCw, ChevronDown, ChevronUp, Lock, Unlock, EyeOff, Edit2, Save, Trash2, DollarSign, CheckCircle, Plus
 } from 'lucide-react';
-import { useUpdateInvoiceProducts, useDeleteInvoice, useUpdateInvoiceDueDate } from '../logic/useClients';
+import { useUpdateInvoiceProducts, useDeleteInvoice, useUpdateInvoiceDueDate, useDeleteClient } from '../logic/useClients';
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { Client, Invoice } from '../logic/ClientContext';
@@ -1026,6 +1026,26 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
     const [isSaving, setIsSaving] = useState(false);
     const [updateError, setUpdateError] = useState<string | null>(null);
 
+    // ── Eliminar cliente ─────────────────────────────────────────────────────
+    const deleteClientMutation = useDeleteClient();
+    const [showDeleteClientConfirm, setShowDeleteClientConfirm] = useState(false);
+    const [deleteClientError, setDeleteClientError] = useState<string | null>(null);
+    const [isDeletingClient, setIsDeletingClient] = useState(false);
+
+    const handleDeleteClient = async () => {
+        setIsDeletingClient(true);
+        setDeleteClientError(null);
+        try {
+            await deleteClientMutation.mutateAsync({ clientId: client!.id });
+            setShowDeleteClientConfirm(false);
+            onClose();
+        } catch (e: any) {
+            setDeleteClientError(e.message || 'Error al eliminar el cliente');
+        } finally {
+            setIsDeletingClient(false);
+        }
+    };
+
     // ── Sync editData whenever the active client changes ─────────────────────
     useEffect(() => {
         if (client) {
@@ -1213,14 +1233,27 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                             )}
                             
                             {!isEditing ? (
-                                <button 
-                                    type="button"
-                                    onClick={() => setIsEditing(true)}
-                                    className="p-1.5 rounded-full text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors shrink-0"
-                                    title="Editar datos del cliente"
-                                >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                </button>
+                                <>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setIsEditing(true)}
+                                        className="p-1.5 rounded-full text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors shrink-0"
+                                        title="Editar datos del cliente"
+                                    >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    {/* Botón eliminar — solo si deuda = 0 */}
+                                    {totalDebt === 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setDeleteClientError(null); setShowDeleteClientConfirm(true); }}
+                                            className="p-1.5 rounded-full text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shrink-0"
+                                            title="Eliminar cliente (sin deuda)"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    )}
+                                </>
                             ) : (
                                 <button 
                                     type="button"
@@ -1508,6 +1541,49 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                     }}
                     registerPayment={registerPaymentOnInvoice}
                 />
+            )}
+
+            {/* ── Confirmar eliminación de cliente ─────────────────────── */}
+            {showDeleteClientConfirm && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+                    <div
+                        className="bg-white rounded-2xl shadow-2xl p-6 max-w-[340px] w-full animate-scale-in flex flex-col items-center text-center"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="w-14 h-14 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mb-4">
+                            <Trash2 className="w-6 h-6" />
+                        </div>
+                        <h3 className="font-bold text-lg mb-1 text-gray-900">Eliminar Cliente</h3>
+                        <p className="text-sm font-semibold text-gray-700 mb-1">{client.name}</p>
+                        <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                            Esta acción eliminará permanentemente al cliente y toda su historia de facturas. No se puede deshacer.
+                        </p>
+
+                        {deleteClientError && (
+                            <div className="mb-4 w-full px-3 py-2 rounded-lg bg-rose-50 border border-rose-200">
+                                <p className="text-xs text-rose-600 font-semibold">{deleteClientError}</p>
+                            </div>
+                        )}
+
+                        <div className="flex gap-3 w-full">
+                            <button
+                                onClick={() => setShowDeleteClientConfirm(false)}
+                                disabled={isDeletingClient}
+                                className="flex-1 h-10 rounded-xl font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 text-sm transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleDeleteClient}
+                                disabled={isDeletingClient}
+                                className="flex-1 h-10 rounded-xl font-bold bg-rose-600 text-white hover:bg-rose-700 text-sm transition-colors flex items-center justify-center gap-2"
+                            >
+                                {isDeletingClient ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Eliminar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );

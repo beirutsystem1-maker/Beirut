@@ -833,3 +833,64 @@ export function useDeleteInvoice() {
     });
 }
 
+// ─── useDeleteClient ──────────────────────────────────────────────────────────
+export function useDeleteClient() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ clientId }: { clientId: string }) => {
+            if (USE_SUPABASE_DIRECT && supabase) {
+                // 1. Fetch invoice IDs for this client
+                const { data: invoices, error: invFetchErr } = await supabase
+                    .from('invoices')
+                    .select('id')
+                    .eq('client_id', clientId);
+                if (invFetchErr) throw new Error(`Error buscando facturas: ${invFetchErr.message}`);
+
+                const invoiceIds = (invoices || []).map((i: any) => i.id);
+
+                if (invoiceIds.length > 0) {
+                    // 2. Delete payments linked to those invoices
+                    const { error: payErr } = await supabase
+                        .from('payments')
+                        .delete()
+                        .in('invoice_id', invoiceIds);
+                    if (payErr) console.warn('[DeleteClient] payments:', payErr.message);
+
+                    // 3. Delete invoice products
+                    const { error: prodErr } = await supabase
+                        .from('invoice_products')
+                        .delete()
+                        .in('invoice_id', invoiceIds);
+                    if (prodErr) throw new Error(`Error eliminando productos: ${prodErr.message}`);
+
+                    // 4. Delete invoices
+                    const { error: invErr } = await supabase
+                        .from('invoices')
+                        .delete()
+                        .eq('client_id', clientId);
+                    if (invErr) throw new Error(`Error eliminando facturas: ${invErr.message}`);
+                }
+
+                // 5. Delete client
+                const { error: clientErr } = await supabase
+                    .from('clients')
+                    .delete()
+                    .eq('id', clientId);
+                if (clientErr) throw new Error(`Error eliminando cliente: ${clientErr.message}`);
+
+                return { success: true };
+            }
+
+            const res = await fetch(`${SERVER_URL}/clients/${clientId}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Error al eliminar el cliente');
+            }
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['clients'] });
+        },
+    });
+}

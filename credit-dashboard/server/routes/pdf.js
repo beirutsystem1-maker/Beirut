@@ -15,7 +15,7 @@ const upload = multer({
 
 // ── Gemini client ─────────────────────────────────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const MODEL_NAME = 'gemini-2.5-flash';
+const MODEL_NAME = 'gemini-2.5-flash-lite';
 
 // ── Prompt robusto ────────────────────────────────────────────────────────────
 function buildPrompt(tasa) {

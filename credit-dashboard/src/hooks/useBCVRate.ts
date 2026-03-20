@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
 interface UseBCVRateReturn {
   rate: number;         // Tasa BCV oficial — siempre de la API
   parallelRate: number; // Tasa paralela — editable manualmente, persiste
@@ -20,8 +26,6 @@ const DEFAULT_PARALLEL = 52.00;
 
 export function useBCVRate(): UseBCVRateReturn {
   // ── Tasa BCV oficial ─────────────────────────────────────────────
-  // Viene de la API, pero el usuario puede sobreescribirla manualmente.
-  // Se lee primero de `bcv_rate_manual_oficial`. Si no, `bcv_rate_usd`.
   const [rate, setRate] = useState<number>(() => {
     const manual = localStorage.getItem('bcv_rate_manual_oficial');
     if (manual) return parseFloat(manual);
@@ -30,8 +34,6 @@ export function useBCVRate(): UseBCVRateReturn {
   });
 
   // ── Tasa Paralela (manual) ────────────────────────────────────────
-  // El usuario la fija manualmente en el header. Se lee de
-  // `bcv_rate_manual_parallel` (manual) o `bcv_rate_parallel` (caché API).
   const [parallelRate, setParallelRate] = useState<number>(() => {
     const manual = localStorage.getItem('bcv_rate_manual_parallel');
     if (manual) return parseFloat(manual);
@@ -51,7 +53,6 @@ export function useBCVRate(): UseBCVRateReturn {
   // ── setManualRate: solo cambia parallelRate ───────────────────────
   const setManualRate = useCallback((newRate: number | null) => {
     if (newRate === null) {
-      // Al quitar la manual, volvemos al caché API de paralelo
       localStorage.removeItem('bcv_rate_manual_parallel');
       const cached = localStorage.getItem('bcv_rate_parallel');
       setParallelRate(cached ? parseFloat(cached) : DEFAULT_PARALLEL);
@@ -64,7 +65,6 @@ export function useBCVRate(): UseBCVRateReturn {
   // ── setManualBcvRate: solo cambia rate (BCV oficial) ──────────────
   const setManualBcvRate = useCallback((newRate: number | null) => {
     if (newRate === null) {
-      // Al quitar la manual, volvemos al caché API de BCV
       localStorage.removeItem('bcv_rate_manual_oficial');
       const cached = localStorage.getItem('bcv_rate_usd');
       setRate(cached ? parseFloat(cached) : DEFAULT_BCV);
@@ -113,16 +113,24 @@ export function useBCVRate(): UseBCVRateReturn {
           }
         }
 
-
         const now = new Date();
         setLastUpdated(now);
         localStorage.setItem('bcv_rate_updated', now.toISOString());
         setSource('BCV via DolarAPI');
         setIsStale(false);
+
+        // Subir al historial en base de datos (Supabase)
+        if (supabase && oficial?.promedio) {
+          supabase.from('bcv_history').insert([
+            { rate: oficial.promedio, source: 've.dolarapi.com', updated_at: now.toISOString() }
+          ]).then(({ error }) => {
+            if (error) console.error('Error guardando historial BCV:', error.message);
+          });
+        }
       }
     } catch (err) {
       console.error('Error fetching BCV rate:', err);
-      setError('No se pudo obtener la tasa del BCV');
+      setError('Tasa no actualizada, usando último valor disponible');
 
       // Fallback offline: usar caché guardado
       const savedRate = localStorage.getItem('bcv_rate_usd');
@@ -132,7 +140,7 @@ export function useBCVRate(): UseBCVRateReturn {
     }
   }, []);
 
-  // ── Efecto: fetch al montar + cada 1 hora ────────────────────────
+  // ── Efecto: Actualización automática diaria a las 9:00 AM ─────────
   useEffect(() => {
     const checkStaleness = () => {
       if (!lastUpdated) {
@@ -140,31 +148,48 @@ export function useBCVRate(): UseBCVRateReturn {
         return;
       }
       const diff = Date.now() - lastUpdated.getTime();
-      setIsStale(diff > ONE_MINUTE_MS);
+      setIsStale(diff > 12 * 60 * 60 * 1000); // Consideramos stale después de 12h
     };
 
-    // Check immediately and then every 10 seconds
     checkStaleness();
-    const staleInterval = setInterval(checkStaleness, 10000);
+    const staleInterval = setInterval(checkStaleness, 60000);
 
-    const shouldRefreshNow = !lastUpdated || (Date.now() - lastUpdated.getTime()) > ONE_MINUTE_MS;
+    const checkAndFetchAuto = () => {
+      const nowNode = new Date();
+      const lastUpdateStr = localStorage.getItem('bcv_rate_updated');
+      const lastUpd = lastUpdateStr ? new Date(lastUpdateStr) : null;
 
-    if (shouldRefreshNow) {
-      fetchRate();
-    } else {
-      setIsLoading(false);
-    }
+      if (!lastUpd) {
+        fetchRate();
+        return;
+      }
 
-    // Refresco automático cada 1 minuto mientras la pestaña está abierta
+      const isSameDay = lastUpd.toDateString() === nowNode.toDateString();
+      const wasUpdatedAfter9 = lastUpd.getHours() >= 9;
+      const isNowAfter9 = nowNode.getHours() >= 9;
+
+      // Actualizar automáticamente si hoy son pasadas las 9:00 AM y aún no nos hemos actualizado
+      if (isNowAfter9 && (!isSameDay || !wasUpdatedAfter9)) {
+        fetchRate();
+      }
+    };
+
+    // Validar apenas entra
+    if (isLoading) checkAndFetchAuto();
+
+    // Comprobar cada 1 minuto (silenciosamente)
     const intervalId = setInterval(() => {
-      fetchRate();
+      checkAndFetchAuto();
     }, ONE_MINUTE_MS);
+
+    // Initial timeout to hide loading if nothing triggered
+    setTimeout(() => setIsLoading(false), 2000);
 
     return () => {
       clearInterval(intervalId);
       clearInterval(staleInterval);
     };
-  }, [fetchRate, lastUpdated]);
+  }, [fetchRate, lastUpdated]); // Quitamos "isLoading" de las deps para no crear loop
 
   return {
     rate,

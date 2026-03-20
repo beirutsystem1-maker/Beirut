@@ -281,11 +281,11 @@ function InvoiceDetailModal({
     const formatNumber = (num: number) => (Math.round(num * 100) / 100).toFixed(2);
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 animate-fade-in"
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-fade-in"
              onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             
             {/* Modal — 2 columnas */}
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[700px] max-h-[88vh] flex flex-col overflow-hidden animate-scale-in">
+            <div className="bg-white rounded-none sm:rounded-2xl shadow-2xl w-full h-[100dvh] sm:h-auto sm:max-h-[88vh] sm:max-w-[700px] flex flex-col overflow-hidden animate-scale-in">
 
                 {/* ZONA 1: Header — shrink-0 */}
                 <div className="shrink-0 px-5 pt-4 pb-3 border-b border-gray-100">
@@ -781,11 +781,11 @@ function GlobalPaymentModal({ client, totalDebt, onClose, onPaymentsConfirmed, r
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 animate-fade-in"
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
             onClick={e => { if (e.target === e.currentTarget && !isProcessing) onClose(); }}
         >
-            <div style={{ background: '#fff', border: '0.5px solid #D1D5DB', borderRadius: 12, maxWidth: 440, width: '100%', fontFamily: 'inherit' }}
-                 className="flex flex-col max-h-[92vh] overflow-hidden animate-scale-in">
+            <div style={{ background: '#fff', border: '0.5px solid #D1D5DB', fontFamily: 'inherit' }}
+                 className="flex flex-col rounded-none sm:rounded-2xl w-full h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92vh] sm:max-w-[440px] overflow-hidden animate-scale-in">
 
                 {/* ── HEADER ───────────────────────────────────────────── */}
                 <div style={{ padding: '16px 20px 14px', borderBottom: '0.5px solid #E5E7EB' }} className="flex items-center gap-3">
@@ -1174,11 +1174,11 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/40 backdrop-blur-sm animate-fade-in"
+            className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-6 bg-black/60 backdrop-blur-sm animate-fade-in"
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div 
-                className="relative w-full max-w-[520px] bg-card rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-border animate-scale-in"
+                className="relative w-full sm:max-w-[520px] bg-card rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[90vh] border-0 sm:border border-border animate-scale-in"
                 onClick={(e) => e.stopPropagation()}
             >
 

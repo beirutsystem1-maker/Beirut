@@ -3,7 +3,7 @@ import {
     Users, Moon, Sun,
     ChevronLeft, ChevronRight, Bell, Search,
     CreditCard, FileSpreadsheet, Settings,
-    Lock, Unlock, CalendarDays
+    Lock, Unlock, CalendarDays, RefreshCw
 } from 'lucide-react';
 import { useTheme } from '../logic/ThemeProvider';
 import type { ViewState } from '../App';
@@ -41,7 +41,7 @@ export function Layout({
 }) {
     const { theme, setTheme } = useTheme();
     const { settings } = useSettings();
-    const { rate, parallelRate, setManualRate, setManualBcvRate, isLoading: isLoadingRate, lastUpdated, isStale } = useBCV();
+    const { rate, parallelRate, setManualRate, setManualBcvRate, isLoading: isLoadingRate, lastUpdated, isStale, refresh } = useBCV();
     
     // Se inicializa desde localStorage, o true por defecto para que siempre esté colapsado como pidió el usuario
     const [collapsed, setCollapsed] = useState(() => {
@@ -190,9 +190,9 @@ export function Layout({
             </aside>
 
             {/* ============ MAIN CONTENT ============ */}
-            <main className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+            <main className="flex-1 flex flex-col h-full overflow-hidden min-w-0 relative">
                 {/* ---- Top Header ---- */}
-                <header className="h-16 border-b border-border bg-card/80 glass flex items-center justify-between px-4 md:px-6 gap-4 flex-shrink-0 sticky top-0 z-20 backdrop-blur-md">
+                <header className="h-16 border-b border-border bg-card/80 glass flex items-center justify-between px-4 md:px-6 gap-2 sm:gap-4 flex-shrink-0 sticky top-0 z-20 backdrop-blur-md">
                     {/* Left: page title */}
                     <div className="flex items-center gap-3 min-w-0">
                         {/* Mobile logo */}
@@ -231,7 +231,7 @@ export function Layout({
                     </div>
 
                     {/* Right: actions */}
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                         {/* Global BCV Rate Input (Ambar) */}
                         <div 
                             className={`hidden sm:flex items-center rounded-full px-3 h-9 transition-all duration-300 relative group overflow-hidden ${isBcvRateUnlocked ? 'bg-amber-500/10 border border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.25)] ring-2 ring-amber-500/20' : isStale ? 'bg-rose-500/10 border border-rose-500/50' : 'bg-muted/40 border border-border/60 hover:border-border/80'}`}
@@ -281,8 +281,16 @@ export function Layout({
                             </div>
                             
                             <button
+                                onClick={refresh}
+                                disabled={isLoadingRate}
+                                className={`ml-0.5 flex items-center justify-center w-6 h-6 rounded-full transition-all outline-none text-muted-foreground/60 hover:text-amber-500 hover:bg-amber-500/10 ${isLoadingRate ? 'animate-spin text-amber-500' : ''}`}
+                                title="Forzar Actualización de Tasa BCV"
+                            >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                            </button>
+                            <button
                                 onClick={() => setIsBcvRateUnlocked(!isBcvRateUnlocked)}
-                                className={`ml-1 flex items-center justify-center w-6 h-6 rounded-full transition-all outline-none ${isBcvRateUnlocked ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-md scale-110' : 'text-muted-foreground/60 hover:text-amber-500 hover:bg-amber-500/10'}`}
+                                className={`ml-0.5 flex items-center justify-center w-6 h-6 rounded-full transition-all outline-none ${isBcvRateUnlocked ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-md scale-110' : 'text-muted-foreground/60 hover:text-amber-500 hover:bg-amber-500/10'}`}
                                 title={isBcvRateUnlocked ? 'Bloquear Tasa BCV' : 'Desbloquear Tasa BCV para Editar Manualmente'}
                             >
                                 {isBcvRateUnlocked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3 h-3" />}
@@ -368,23 +376,23 @@ export function Layout({
                 </header>
 
                 {/* ---- Page Content ---- */}
-                <div className="flex-1 overflow-y-auto bg-background/50">
+                <div className="flex-1 overflow-y-auto bg-background/50 pb-20 md:pb-0">
                     <div className="p-4 md:p-8 w-full min-h-full">
                         {children}
                     </div>
                 </div>
 
                 {/* ---- Mobile Bottom Nav ---- */}
-                <nav className="md:hidden border-t border-border bg-card flex items-center justify-around py-2 flex-shrink-0">
+                <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur shadow-[0_-4px_24px_rgba(0,0,0,0.06)] flex items-center justify-around py-2 flex-shrink-0 h-[68px] pb-safe">
                     {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
                         const isActive = currentView === id;
                         return (
                             <button
                                 key={id}
                                 onClick={() => onViewChange(id)}
-                                className={`flex flex-col items-center gap-0.5 p-2 rounded-xl transition-all ${isActive
-                                    ? 'text-[#635BFF] bg-[#635BFF]/10'
-                                    : 'text-muted-foreground hover:text-foreground'
+                                className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all h-full min-h-[44px] min-w-[50px] ${isActive
+                                    ? 'text-[#635BFF]'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                                     }`}
                             >
                                 <Icon className="w-5 h-5" />

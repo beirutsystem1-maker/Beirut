@@ -134,8 +134,8 @@ function AddClientModal({ onClose, onSave }: { onClose: () => void; onSave: (c: 
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 backdrop-blur-md animate-in fade-in duration-300" onClick={handleBackdrop}>
-            <div className="bg-card/95 backdrop-blur-xl border border-white/20 dark:border-white/5 rounded-[24px] shadow-2xl shadow-black/10 dark:shadow-black/40 w-full max-w-lg mx-4 animate-in zoom-in-95 slide-in-from-bottom-8 duration-300 ease-out flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-4 animate-in fade-in duration-300" onClick={handleBackdrop}>
+            <div className="bg-card/95 backdrop-blur-xl border-0 sm:border border-white/20 dark:border-white/5 rounded-none sm:rounded-[24px] shadow-2xl shadow-black/10 dark:shadow-black/40 w-full h-[100dvh] sm:h-auto sm:max-w-lg mx-0 sm:mx-4 animate-in zoom-in-95 slide-in-from-bottom-8 duration-300 ease-out flex flex-col max-h-[100dvh] sm:max-h-[90vh]">
 
                 <div className="flex justify-between items-center px-8 py-6 border-b border-border/40 shrink-0">
                     <div className="flex items-center gap-4">
@@ -143,8 +143,8 @@ function AddClientModal({ onClose, onSave }: { onClose: () => void; onSave: (c: 
                             <UserPlus className="w-6 h-6 text-[#635BFF]" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-foreground text-xl tracking-tight">Módulo de Clientes</h3>
-                            <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-widest mt-0.5">Alta en Base de Datos</p>
+                            <h3 className="font-bold text-foreground text-lg sm:text-xl tracking-tight">Módulo de Clientes</h3>
+                            <p className="text-xs sm:text-[11px] text-muted-foreground font-semibold uppercase tracking-widest mt-0.5">Alta en Base de Datos</p>
                         </div>
                     </div>
                 </div>
@@ -152,10 +152,10 @@ function AddClientModal({ onClose, onSave }: { onClose: () => void; onSave: (c: 
                 <div className="p-8 space-y-7 overflow-y-auto scrollbar-thin">
                     {/* Toggle Type */}
                     <div className="flex p-1 bg-muted/50 rounded-[14px] border border-border/40">
-                        <button onClick={() => handleTypeSwitch('person')} className={`flex-1 py-2 text-[13px] font-bold rounded-xl transition-all duration-200 ${form.type === 'person' ? 'bg-card shadow-sm text-foreground ring-1 ring-border/50' : 'text-muted-foreground hover:text-foreground/80'}`}>
+                        <button onClick={() => handleTypeSwitch('person')} className={`flex-1 py-3 sm:py-2 text-[14px] sm:text-[13px] font-bold rounded-xl transition-all duration-200 ${form.type === 'person' ? 'bg-card shadow-sm text-foreground ring-1 ring-border/50' : 'text-muted-foreground hover:text-foreground/80'}`}>
                             Persona Física (V, E)
                         </button>
-                        <button onClick={() => handleTypeSwitch('company')} className={`flex-1 py-2 text-[13px] font-bold rounded-xl transition-all duration-200 ${form.type === 'company' ? 'bg-card shadow-sm text-foreground ring-1 ring-border/50' : 'text-muted-foreground hover:text-foreground/80'}`}>
+                        <button onClick={() => handleTypeSwitch('company')} className={`flex-1 py-3 sm:py-2 text-[14px] sm:text-[13px] font-bold rounded-xl transition-all duration-200 ${form.type === 'company' ? 'bg-card shadow-sm text-foreground ring-1 ring-border/50' : 'text-muted-foreground hover:text-foreground/80'}`}>
                             Persona Jurídica (J, G)
                         </button>
                     </div>
@@ -278,13 +278,13 @@ function AddClientModal({ onClose, onSave }: { onClose: () => void; onSave: (c: 
                 <div className="flex gap-4 px-8 pb-8 shrink-0 mt-2 bg-transparent">
                     <button
                         onClick={onClose}
-                        className="flex-1 h-12 rounded-xl text-sm font-bold text-muted-foreground bg-transparent hover:bg-muted/60 hover:text-foreground transition-all duration-200 border border-transparent hover:border-border/50"
+                        className="flex-1 min-h-[44px] sm:h-12 rounded-xl text-sm font-bold text-muted-foreground bg-transparent hover:bg-muted/60 hover:text-foreground transition-all duration-200 border border-transparent hover:border-border/50"
                     >
                         Cancelar
                     </button>
                     <button
                         onClick={handleSave}
-                        className={`flex-[2] h-12 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg group relative overflow-hidden ${saved ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-gradient-to-r from-[#635BFF] to-[#0A2540] text-white hover:from-[#7C74FF] hover:to-[#1a3a5c] shadow-[#635BFF]/25 hover:shadow-[#635BFF]/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]'}`}
+                        className={`flex-[2] min-h-[44px] sm:h-12 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 shadow-lg group relative overflow-hidden ${saved ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-gradient-to-r from-[#635BFF] to-[#0A2540] text-white hover:from-[#7C74FF] hover:to-[#1a3a5c] shadow-[#635BFF]/25 hover:shadow-[#635BFF]/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]'}`}
                     >
                         {saved ? (
                             <><CheckCircle2 className="w-4 h-4 animate-in zoom-in" /> Registrado en BD</>
@@ -635,11 +635,10 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                 <div className="flex items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
                     <button
                         onClick={() => setShowModal(true)}
-                        className="flex items-center gap-2 h-10 px-4 rounded-full bg-gradient-to-r from-[#635BFF] to-[#0A2540] text-white text-sm font-bold hover:from-[#7C74FF] hover:to-[#1a3a5c] hover:shadow-electric transition-all duration-200 flex-shrink-0 whitespace-nowrap"
+                        className="flex items-center justify-center sm:justify-start gap-2 min-h-[44px] w-full sm:w-auto px-4 rounded-xl sm:rounded-full bg-gradient-to-r from-[#635BFF] to-[#0A2540] text-white text-sm font-bold hover:from-[#7C74FF] hover:to-[#1a3a5c] hover:shadow-electric transition-all duration-200 flex-shrink-0"
                     >
-                        <UserPlus className="w-4 h-4" />
-                        <span className="hidden sm:inline">Nuevo Cliente</span>
-                        <span className="sm:hidden">+</span>
+                        <UserPlus className="w-5 h-5 sm:w-4 sm:h-4" />
+                        <span>Nuevo Cliente</span>
                     </button>
                 </div>
             </div>
@@ -719,23 +718,23 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
 
                                         <div className="grid grid-cols-2 gap-4 mb-5 bg-muted/30 rounded-xl p-3">
                                             <div>
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Notas Activas</p>
-                                                <p className={`font-semibold text-sm ${activeInvoices.length > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>{activeInvoices.length}</p>
+                                                <p className="text-[12px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Notas Activas</p>
+                                                <p className={`font-semibold text-base sm:text-sm ${activeInvoices.length > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>{activeInvoices.length}</p>
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Deuda Total</p>
-                                                <p className={`font-bold font-mono text-sm ${status === 'en mora' ? 'text-rose-600 dark:text-rose-400' : totalDebt > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                                <p className="text-[12px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Deuda Total</p>
+                                                <p className={`font-bold font-mono text-base sm:text-sm ${status === 'en mora' ? 'text-rose-600 dark:text-rose-400' : totalDebt > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
                                                     {totalDebt > 0 ? formatCurrency(totalDebt) : '—'}
                                                 </p>
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-3">
-                                            <button onClick={() => openWhatsApp(client)} className="flex items-center justify-center gap-2 h-10 w-full rounded-xl bg-[#25D366]/10 text-[#25D366] font-bold text-sm hover:bg-[#25D366] hover:text-white transition-colors">
-                                                <MessageCircle className="w-4 h-4" /> Cobrar
+                                            <button onClick={() => openWhatsApp(client)} className="flex items-center justify-center gap-2 min-h-[44px] w-full rounded-xl bg-[#25D366]/10 text-[#25D366] font-bold text-sm hover:bg-[#25D366] hover:text-white transition-colors">
+                                                <MessageCircle className="w-5 h-5 sm:w-4 sm:h-4" /> Cobrar
                                             </button>
-                                            <button onClick={() => setSelectedClientId(client.id)} className="flex items-center justify-center gap-2 h-10 w-full rounded-xl border border-[#635BFF]/30 text-[#635BFF] font-bold text-sm hover:bg-[#635BFF] hover:text-white transition-colors">
-                                                Ver ficha <ChevronRight className="w-4 h-4" />
+                                            <button onClick={() => setSelectedClientId(client.id)} className="flex items-center justify-center gap-2 min-h-[44px] w-full rounded-xl border border-[#635BFF]/30 text-[#635BFF] font-bold text-sm hover:bg-[#635BFF] hover:text-white transition-colors">
+                                                Ver ficha <ChevronRight className="w-5 h-5 sm:w-4 sm:h-4" />
                                             </button>
                                         </div>
                                     </div>

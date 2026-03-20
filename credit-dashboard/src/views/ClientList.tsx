@@ -501,56 +501,52 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         if (!rateConfirmData) return;
         const { client, deudaBCV, deudaParalela, activeInvoices, relevantPayments } = rateConfirmData;
 
-        const EM = {
-            building:  '',
-            person:    '',
-            calendar:  '',
-            receipt:   '',
-            check:     '',
-            chart:     '',
-            money:     '',
-            bank:      '',
-            red:       '',
-            green:     '',
-            date:      '',
-            bullet:    '-',
-        };
-
+        const EM = { bullet: '-' };
         const SEP = '---------------------';
 
-        const factor = rateMode === 'bcv' ? (1 + surchargePercent / 100) : 1;
-        const deuda = rateMode === 'bcv' ? deudaBCV : deudaParalela;
+        const isBcv = rateMode === 'bcv';
+        const curSym = isBcv ? 'Bs. ' : '$';
+        
+        // mathFactor converts Original USD to Surcharged USD (if BCV)
+        const mathFactor = isBcv ? (1 + surchargePercent / 100) : 1;
+        // printFactor converts Original USD to the final display currency (Bs or $)
+        const printFactor = isBcv ? mathFactor * tasaBCV : 1;
+        
+        // The final debt in display currency
+        const deudaDisp = isBcv ? deudaBCV * tasaBCV : deudaParalela;
+
         const fmtNum = (n: number) => new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
         const fmtDate = (d: string) => parseLocalDate(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short' });
         const fmtLongDate = (d: Date) => d.toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' });
 
         const todayDate = new Date();
-        const totalPaid = relevantPayments.reduce((acc, p) => acc + (p.amountUsd || p.amount || 0), 0);
+        const totalPaidUsd = relevantPayments.reduce((acc, p) => acc + (p.amountUsd || p.amount || 0), 0);
+        // We display payments in the chosen currency at current rate
+        const totalPaidDisp = isBcv ? totalPaidUsd * tasaBCV : totalPaidUsd;
 
         let msg = `*BEIRUT* \u00B7 Estado de Cuenta\n`;
         msg += `${SEP}\n`;
         msg += `*${client.name}*\n`;
         msg += `${fmtLongDate(todayDate)}\n`;
+        if (isBcv) {
+            msg += `_Tasa aplicada: ${fmtNum(tasaBCV)} Bs/USD_\n`;
+        }
         msg += `${SEP}\n`;
         msg += `*FACTURAS ACTIVAS*\n\n`;
 
-        // Incluimos todas las facturas pendientes o en mora
         const sortedInvoices = [...activeInvoices].sort((a, b) => parseLocalDate(a.dueDate).getTime() - parseLocalDate(b.dueDate).getTime());
 
         sortedInvoices.forEach(inv => {
             const statusLabel = inv.status === 'en mora' ? '_En mora_' : '_Pendiente_';
             const products = Array.isArray(inv.products) ? inv.products : [];
 
-            // Subtotal base (suma de todos los productos sin recargo)
             const subtotalBase = products.length > 0
                 ? products.reduce((s: number, p: any) => s + (Number(p.quantity) || 1) * (Number(p.price ?? p.precio ?? p.unitPrice) || 0), 0)
                 : inv.totalAmount;
 
-            // IVA de la factura (campo iva o ivaAmount)
             const ivaUsd = Number((inv as any).iva ?? (inv as any).ivaAmount ?? 0);
-
-            // Total con recargo aplicado al cliente
-            const totalConRecargo = (subtotalBase + ivaUsd) * factor;
+            const totalUSD = subtotalBase + ivaUsd;
+            const totalDisp = totalUSD * printFactor;
 
             msg += `*#${inv.valeryNoteId}* \u00B7 ${statusLabel}\n`;
 
@@ -558,47 +554,46 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                 products.forEach((p: any) => {
                     const qty        = Number(p.quantity) || 1;
                     const priceBase  = Number(p.price ?? p.precio ?? p.unitPrice) || 0;
-                    const priceAdj   = priceBase * factor; // aplica recargo BCV o precio base Paralela
+                    const priceDisp  = priceBase * printFactor;
                     const desc       = String(p.description ?? p.nombre ?? p.name ?? 'Producto');
-                    msg += `  ${EM.bullet} ${qty}x ${desc} ........ $${fmtNum(qty * priceAdj)}\n`;
+                    msg += `  ${EM.bullet} ${qty}x ${desc} ........ ${curSym}${fmtNum(qty * priceDisp)}\n`;
                 });
             } else {
-                msg += `  ${EM.bullet} Productos varios ........ $${fmtNum(subtotalBase * factor)}\n`;
+                msg += `  ${EM.bullet} Productos varios ........ ${curSym}${fmtNum(subtotalBase * printFactor)}\n`;
             }
 
             if (ivaUsd > 0) {
-                msg += `  ${EM.bullet} IVA (16%) ........ $${fmtNum(ivaUsd * factor)}\n`;
+                msg += `  ${EM.bullet} IVA (16%) ........ ${curSym}${fmtNum(ivaUsd * printFactor)}\n`;
             }
 
-            msg += `  L Total: *$${fmtNum(totalConRecargo)}*\n\n`;
+            msg += `  L Total: *${curSym}${fmtNum(totalDisp)}*\n\n`;
         });
 
         if (relevantPayments.length > 0) {
             msg += `${SEP}\n`;
             msg += `*PAGOS RECIBIDOS*\n`;
             relevantPayments.forEach(p => {
-                const pAmount = p.amountUsd || p.amount || 0;
+                const pAmountUsd = p.amountUsd || p.amount || 0;
+                const pAmountDisp = isBcv ? pAmountUsd * tasaBCV : pAmountUsd;
                 const pDate = p.createdAt || p.payment_date || '';
-                msg += `  ${EM.bullet} ${pDate ? fmtDate(pDate.split('T')[0]) : '--'} \u00B7 ${p.paymentMethod || p.method || 'Pago'} .... $${fmtNum(pAmount)}\n`;
+                msg += `  ${EM.bullet} ${pDate ? fmtDate(pDate.split('T')[0]) : '--'} \u00B7 ${p.paymentMethod || p.method || 'Pago'} .... ${curSym}${fmtNum(pAmountDisp)}\n`;
             });
-            msg += `  L Total pagado: *$${fmtNum(totalPaid)}*\n\n`;
+            msg += `  L Total pagado: *${curSym}${fmtNum(totalPaidDisp)}*\n\n`;
         }
 
         msg += `${SEP}\n`;
         msg += `*RESUMEN*\n`;
-        msg += `  Total deuda:     $${fmtNum(deuda + totalPaid)}\n`;
-        if (totalPaid > 0) msg += `  Cancelado:       $${fmtNum(totalPaid)}\n`;
+        msg += `  Total deuda:     ${curSym}${fmtNum(deudaDisp + totalPaidDisp)}\n`;
+        if (totalPaidDisp > 0) msg += `  Cancelado:       ${curSym}${fmtNum(totalPaidDisp)}\n`;
         
-        if (deuda > 0) {
-            msg += `  *Saldo pendiente: $${fmtNum(deuda)}*\n\n`;
+        if (deudaDisp > 0) {
+            msg += `  *Saldo pendiente: ${curSym}${fmtNum(deudaDisp)}*\n\n`;
         } else {
-            msg += `  *A su favor:     $${fmtNum(Math.abs(deuda))}*\n\n`;
+            msg += `  *A su favor:     ${curSym}${fmtNum(Math.abs(deudaDisp))}*\n\n`;
         }
 
-        if (rateMode === 'bcv') {
-            const bsBCV = Math.abs(deuda) * tasaBCV;
-            msg += `*En Bol\u00EDvares (BCV ${fmtNum(tasaBCV)} Bs/$):*\n`;
-            msg += `  ${deuda <= 0 ? 'A favor' : 'Debe'} \u2192 *Bs. ${fmtNum(bsBCV)}*\n`;
+        if (isBcv) {
+            msg += `\u26A0\uFE0F _Nota: Montos calculados en Bol\u00EDvares. Dispone de *2 d\u00EDas* para realizar el pago manteniendo esta tarifa actual._\n`;
         }
 
         msg += `${SEP}\n`;

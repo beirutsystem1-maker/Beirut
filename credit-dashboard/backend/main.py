@@ -1,5 +1,5 @@
 """
-Backend Beirut - Extracción de PDF
+Backend Beirut - Extracción de PDF + Generación de Nota de Estado de Cuenta
 FastAPI para procesar facturas PDFs y extraer datos
 """
 
@@ -9,7 +9,10 @@ import json
 from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from pydantic import BaseModel
 import pdfplumber
+from nota_pdf import generar_nota_cliente
 
 app = FastAPI(title="Beirut PDF Extractor")
 
@@ -196,6 +199,79 @@ async def extract_pdf(file: UploadFile = File(...)):
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+# ─── Modelos para la nota PDF ────────────────────────────────────────────────
+class ItemFactura(BaseModel):
+    cantidad: float = 1
+    descripcion: str
+    precio_unitario: float = 0
+    subtotal: float = 0
+
+class FacturaNota(BaseModel):
+    id: str
+    fecha_emision: str = ""
+    fecha_vencimiento: str = ""
+    estado: str  # activa | pendiente | mora | en mora
+    items: List[ItemFactura] = []
+    total_con_recargo: float = 0
+
+class ClienteNota(BaseModel):
+    nombre: str
+    cedula: str = ""
+    telefono: str = ""
+
+class MetaNota(BaseModel):
+    empresa: str = "BEIRUT"
+    fecha_emision: str = ""
+    tasa_dia: float = 0
+    recargo_porcentaje: float = 30
+    vencimiento_general: str = ""
+
+class NotaRequest(BaseModel):
+    cliente: ClienteNota
+    facturas: List[FacturaNota]
+    meta: MetaNota
+
+
+@app.post("/api/pdf/nota-cliente",
+          summary="Genera PDF de estado de cuenta estilo nota simple")
+async def generar_nota_pdf(payload: NotaRequest):
+    """
+    Recibe los datos del cliente, sus facturas activas/pendientes/mora
+    y metadata empresarial, y devuelve un PDF estilo nota simple A4
+    en escala de grises listo para descargar.
+    """
+    try:
+        cliente_dict = payload.cliente.model_dump()
+        facturas_list = [
+            {
+                **f.model_dump(),
+                "items": [i.model_dump() for i in f.items],
+            }
+            for f in payload.facturas
+        ]
+        meta_dict = payload.meta.model_dump()
+
+        pdf_bytes = generar_nota_cliente(cliente_dict, facturas_list, meta_dict)
+
+        nombre_archivo = (
+            f"estado_cuenta_{payload.cliente.nombre.replace(' ', '_')}.pdf"
+        )
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{nombre_archivo}"',
+                "Content-Length": str(len(pdf_bytes)),
+            },
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generando el PDF: {str(e)}"
+        )
+
 
 if __name__ == "__main__":
     import uvicorn

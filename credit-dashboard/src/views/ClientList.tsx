@@ -2,13 +2,14 @@ import React, { useState, useMemo } from 'react';
 import {
     MessageCircle, FileText, ChevronRight,
     UserPlus, User, Phone, Mail,
-    CheckCircle2, AlertCircle, MapPin
+    CheckCircle2, AlertCircle, MapPin, Download
 } from 'lucide-react';
 import { useClients, calculateClientDebt, calculateClientStatus } from '../logic/ClientContext';
 import { SERVER_URL } from '../logic/useClients';
 import { parseLocalDate, isOverdue } from '../utils/dates';
 import type { Client, Invoice } from '../logic/ClientContext';
 import { ClientMasterProfile } from '../components/ClientMasterProfile';
+import { generateStatementPDF } from '../utils/generateStatementPDF';
 const STATUS_CONFIG = {
     'en mora': { label: 'En Mora', pill: 'pill-overdue', row: 'bg-rose-50/40 dark:bg-rose-950/10' },
     'pendiente': { label: 'Pendiente', pill: 'pill-warning', row: 'bg-amber-50/40 dark:bg-amber-950/10' },
@@ -375,6 +376,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         deudaParalela: number;
         activeInvoices: Invoice[];
         relevantPayments: any[];
+        action: 'whatsapp' | 'pdf';
     }
     const [rateConfirmData, setRateConfirmData] = useState<RateConfirmData | null>(null);
     
@@ -454,7 +456,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         return cleaned;
     };
 
-    const openWhatsApp = async (client: Client) => {
+    const openExportModal = async (client: Client, action: 'whatsapp' | 'pdf') => {
         if (!client.phone || client.phone.trim() === '' || client.phone === '—') {
             alert(`El cliente ${client.name} no tiene un numero de WhatsApp registrado.`);
             return;
@@ -493,19 +495,35 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
             deudaParalela: balanceBase,
             deudaBCV: balanceBase * factor,
             activeInvoices,
-            relevantPayments
+            relevantPayments,
+            action
         });
     };
 
-    const sendWhatsApp = (rateMode: 'bcv' | 'paralela') => {
+    const handleExportAction = async (rateMode: 'bcv' | 'paralela') => {
         if (!rateConfirmData) return;
-        const { client, deudaBCV, deudaParalela, activeInvoices, relevantPayments } = rateConfirmData;
+        const { client, deudaBCV, deudaParalela, activeInvoices, relevantPayments, action } = rateConfirmData;
 
         const EM = { bullet: '-' };
         const SEP = '---------------------';
 
         const isBcv = rateMode === 'bcv';
         const curSym = isBcv ? 'Bs. ' : '$';
+
+        if (action === 'pdf') {
+            await generateStatementPDF({
+                clientName: client.name,
+                clientRif: client.rif,
+                clientPhone: client.phone,
+                invoices: activeInvoices as any,
+                transactions: relevantPayments,
+                surchargePercent,
+                currency: isBcv ? 'VES' : 'USD',
+                appliedRate: isBcv ? tasaBCV : 1
+            });
+            setRateConfirmData(null);
+            return;
+        }
         
         // mathFactor converts Original USD to Surcharged USD (if BCV)
         const mathFactor = isBcv ? (1 + surchargePercent / 100) : 1;
@@ -725,11 +743,14 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-3">
-                                            <button onClick={() => openWhatsApp(client)} className="flex items-center justify-center gap-2 min-h-[44px] w-full rounded-xl bg-[#25D366]/10 text-[#25D366] font-bold text-sm hover:bg-[#25D366] hover:text-white transition-colors">
-                                                <MessageCircle className="w-5 h-5 sm:w-4 sm:h-4" /> Cobrar
+                                            <button onClick={() => setSelectedClientId(client.id)} className="col-span-2 flex items-center justify-center gap-2 min-h-[42px] w-full rounded-xl border border-[#635BFF]/30 text-[#635BFF] font-bold text-sm hover:bg-[#635BFF] hover:text-white transition-colors">
+                                                Ver ficha completa <ChevronRight className="w-4 h-4" />
                                             </button>
-                                            <button onClick={() => setSelectedClientId(client.id)} className="flex items-center justify-center gap-2 min-h-[44px] w-full rounded-xl border border-[#635BFF]/30 text-[#635BFF] font-bold text-sm hover:bg-[#635BFF] hover:text-white transition-colors">
-                                                Ver ficha <ChevronRight className="w-5 h-5 sm:w-4 sm:h-4" />
+                                            <button onClick={() => openExportModal(client, 'whatsapp')} className="flex items-center justify-center gap-2 min-h-[42px] w-full rounded-xl bg-[#25D366]/10 text-[#25D366] font-bold text-sm hover:bg-[#25D366] hover:text-white transition-colors">
+                                                <MessageCircle className="w-4 h-4" /> WhatsApp
+                                            </button>
+                                            <button onClick={() => openExportModal(client, 'pdf')} className="flex items-center justify-center gap-2 min-h-[42px] w-full rounded-xl bg-blue-500/10 text-blue-500 font-bold text-sm hover:bg-blue-500 hover:text-white transition-colors">
+                                                <Download className="w-4 h-4" /> PDF
                                             </button>
                                         </div>
                                     </div>
@@ -813,8 +834,11 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                                                     >
                                                         Ver ficha <ChevronRight className="w-3 h-3" />
                                                     </button>
-                                                    <button onClick={() => openWhatsApp(client)} title="Cobrar por WhatsApp" className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 hover:bg-[#25D366] hover:text-white transition-all duration-150">
+                                                    <button onClick={() => openExportModal(client, 'whatsapp')} title="Cobrar por WhatsApp" className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-[#25D366]/10 text-[#25D366] border border-[#25D366]/20 hover:bg-[#25D366] hover:text-white transition-all duration-150">
                                                         <MessageCircle className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => openExportModal(client, 'pdf')} title="Descargar Estado de Cuenta" className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-blue-500/10 text-blue-500 border border-blue-500/20 hover:bg-blue-500 hover:text-white transition-all duration-150">
+                                                        <Download className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             </td>
@@ -878,32 +902,32 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                         boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)'
                     }}>
                         <p style={{ fontSize: 13, fontWeight: 500, color: '#1A1B2E', marginBottom: 16 }}>
-                            ¿Qué monto enviar al cliente?
+                            ¿Qué formato utilizar para la acción?
                         </p>
 
-                        {/* BCV — monto amarillo */}
-                        <button onClick={() => sendWhatsApp('bcv')}
+                        {/* Paralela — opción principal, monto en USD */}
+                        <button onClick={() => handleExportAction('paralela')}
+                            style={{
+                                background: '#1A1B2E', color: '#FFFFFF', border: '0.5px solid #444',
+                                borderRadius: 8, padding: '10px 14px', width: '100%', marginBottom: 8, cursor: 'pointer',
+                                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left'
+                            }}>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>Tasa Paralela · ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(rateConfirmData.deudaParalela)}</div>
+                            <div style={{ fontSize: 11, marginTop: 2, color: '#AAAACC' }}>
+                                Deuda en USD · sin conversión a Bs
+                            </div>
+                        </button>
+
+                        {/* BCV — opción secundaria, monto con recargo + equivalente en Bs */}
+                        <button onClick={() => handleExportAction('bcv')}
                             style={{
                                 background: '#FAEEDA', color: '#854F0B', border: '0.5px solid #BA7517',
-                                borderRadius: 8, padding: '10px 14px', width: '100%', marginBottom: 8, cursor: 'pointer',
+                                borderRadius: 8, padding: '10px 14px', width: '100%', marginBottom: 12, cursor: 'pointer',
                                 display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left'
                             }}>
                             <div style={{ fontSize: 13, fontWeight: 500 }}>Tasa BCV · ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(rateConfirmData.deudaBCV)}</div>
                             <div style={{ fontSize: 11, marginTop: 2, color: '#BA7517' }}>
                                 Incluye equivalente en Bs. {new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(tasaBCV * rateConfirmData.deudaBCV)}
-                            </div>
-                        </button>
-
-                        {/* Paralela — monto negro, solo USD */}
-                        <button onClick={() => sendWhatsApp('paralela')}
-                            style={{
-                                background: '#F1EFE8', color: '#2C2C2A', border: '0.5px solid #888780',
-                                borderRadius: 8, padding: '10px 14px', width: '100%', marginBottom: 12, cursor: 'pointer',
-                                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left'
-                            }}>
-                            <div style={{ fontSize: 13, fontWeight: 500 }}>Tasa Paralela · ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(rateConfirmData.deudaParalela)}</div>
-                            <div style={{ fontSize: 11, marginTop: 2, color: '#5F5E5A' }}>
-                                Solo muestra deuda en USD · sin Bs
                             </div>
                         </button>
 

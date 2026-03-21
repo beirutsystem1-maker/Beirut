@@ -372,7 +372,7 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
         sub_data = [[
             Paragraph("", ST["subtotal_lbl"]),
             Paragraph(
-                f"Subtotal con recargo:   {_fmt_usd(total_fac)}",
+                f"Total:   {_fmt_usd(total_fac)}",
                 ST["subtotal_lbl"],
             ),
         ]]
@@ -415,7 +415,7 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
     vencimiento_general = meta.get("vencimiento_general", "")
 
     nota_texto = (
-        f"* Montos en USD. Se aplica un recargo del {recargo_pct}% sobre el valor base de cada factura."
+        "* Montos calculados en Bolívares al cambio. Dispone de 2 días para realizar el pago manteniendo esta tarifa actual. Para pagos efectuados directamente en divisas, le ofrecemos un descuento sobre el monto total de su deuda."
     )
     if vencimiento_general:
         nota_texto += f"  Vencimiento general: {_fmt_fecha(vencimiento_general)}."

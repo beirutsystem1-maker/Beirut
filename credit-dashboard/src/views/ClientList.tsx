@@ -974,16 +974,16 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                             </div>
                         </button>
 
-                        {/* BCV — opción secundaria, monto con recargo + equivalente en Bs */}
+                        {/* BCV — opción secundaria, monto principal en Bolívares */}
                         <button onClick={() => handleExportAction('bcv')}
                             style={{
                                 background: '#FAEEDA', color: '#854F0B', border: '0.5px solid #BA7517',
                                 borderRadius: 8, padding: '10px 14px', width: '100%', marginBottom: 12, cursor: 'pointer',
                                 display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left'
                             }}>
-                            <div style={{ fontSize: 13, fontWeight: 500 }}>Tasa BCV · ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(rateConfirmData.deudaBCV)}</div>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>Tasa BCV · Bs. {new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(tasaBCV * rateConfirmData.deudaBCV)}</div>
                             <div style={{ fontSize: 11, marginTop: 2, color: '#BA7517' }}>
-                                Incluye equivalente en Bs. {new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(tasaBCV * rateConfirmData.deudaBCV)}
+                                Equivalente a ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(rateConfirmData.deudaBCV)} (monto con recargo)
                             </div>
                         </button>
 

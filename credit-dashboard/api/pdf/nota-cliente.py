@@ -165,7 +165,7 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
         story.append(HRFlowable(width="100%", thickness=0.3, color=GRIS_CLAR, spaceBefore=1 * mm, spaceAfter=1.5 * mm))
 
         total_fac = fac.get("total_con_recargo", 0)
-        sub_data = [[Paragraph("", ST["subtotal_lbl"]), Paragraph(f"Subtotal con recargo:   {_fmt_usd(total_fac)}", ST["subtotal_lbl"])]]
+        sub_data = [[Paragraph("", ST["subtotal_lbl"]), Paragraph(f"Total:   {_fmt_usd(total_fac)}", ST["subtotal_lbl"])]]
         t_sub = Table(sub_data, colWidths=[ancho_content * 0.5, ancho_content * 0.5])
         t_sub.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("BOTTOMPADDING", (0, 0), (-1, -1), 1), ("TOPPADDING", (0, 0), (-1, -1), 1)]))
         story.append(t_sub)
@@ -187,7 +187,7 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
     # NOTA AL PIE
     recargo_pct = meta.get("recargo_porcentaje", 0)
     vencimiento_general = meta.get("vencimiento_general", "")
-    nota_texto = f"* Montos en USD. Se aplica un recargo del {recargo_pct}% sobre el valor base de cada factura."
+    nota_texto = "* Montos calculados en Bolívares al cambio. Dispone de 2 días para realizar el pago manteniendo esta tarifa actual. Para pagos efectuados directamente en divisas, le ofrecemos un descuento sobre el monto total de su deuda."
     if vencimiento_general:
         nota_texto += f"  Vencimiento general: {_fmt_fecha(vencimiento_general)}."
     if tasa_dia:

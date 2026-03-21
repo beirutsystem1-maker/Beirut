@@ -518,14 +518,17 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                 },
                 facturas: activeInvoices.map(inv => {
                     const products = Array.isArray(inv.products) ? inv.products : [];
+                    const mathFactor = rateMode === 'bcv' ? (1 + surchargePercent / 100) : 1;
+
                     const items = products.length > 0 ? products.map((p: any) => {
                         const qty = Number(p.quantity) || 1;
-                        const price = Number(p.price ?? p.precio ?? p.unitPrice) || 0;
+                        const priceBase = Number(p.price ?? p.precio ?? p.unitPrice) || 0;
+                        const priceAdjusted = priceBase * mathFactor;
                         return {
                             cantidad: qty,
                             descripcion: String(p.description ?? p.nombre ?? p.name ?? 'Producto'),
-                            precio_unitario: price,
-                            subtotal: qty * price
+                            precio_unitario: priceAdjusted,
+                            subtotal: qty * priceAdjusted
                         };
                     }) : [];
 
@@ -534,7 +537,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                         : inv.totalAmount;
                     const ivaUsd = Number((inv as any).iva ?? (inv as any).ivaAmount ?? 0);
                     const totalUSD = subtotalBase + ivaUsd;
-                    const totalConRecargo = totalUSD * (1 + surchargePercent / 100);
+                    const totalConRecargo = totalUSD * mathFactor;
 
                     return {
                         id: inv.valeryNoteId || inv.id.substring(0, 8),

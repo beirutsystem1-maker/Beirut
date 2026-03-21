@@ -257,6 +257,8 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
     # ── DATOS DEL CLIENTE ─────────────────────────────────────────────────────
     tasa_dia = meta.get("tasa_dia", 0)
     fecha_emision = _fmt_fecha(meta.get("fecha_emision", ""))
+    formato = meta.get("formato", "paralela")
+    es_bcv = (formato == "bcv")
 
     datos_tabla = [
         [
@@ -268,11 +270,8 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
         [
             Paragraph("Cédula / RIF:", ST["datos_lbl"]),
             Paragraph(cliente.get("cedula", "—"), ST["datos_val"]),
-            Paragraph("Tasa del día:", ST["datos_lbl"]),
-            Paragraph(
-                f"Bs. {tasa_dia:,.2f} / USD" if tasa_dia else "—",
-                ST["datos_val"],
-            ),
+            Paragraph("Tasa del día:", ST["datos_lbl"]) if es_bcv else Paragraph("", ST["datos_lbl"]),
+            Paragraph(f"Bs. {tasa_dia:,.2f} / USD" if (es_bcv and tasa_dia) else "", ST["datos_val"]),
         ],
         [
             Paragraph("Teléfono:", ST["datos_lbl"]),
@@ -407,11 +406,9 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
             ))
 
     # ── TOTAL FINAL ───────────────────────────────────────────────────────────
-    formato = meta.get("formato", "paralela")
-    tasa_dia = meta.get("tasa_dia", 0)
     total_general = sum(f.get("total_con_recargo", 0) for f in facturas_activas)
 
-    if formato == "bcv" and tasa_dia:
+    if es_bcv and tasa_dia:
         total_bs = float(total_general) * float(tasa_dia)
         txt_total_val = f"Bs. {total_bs:,.2f}"
     else:
@@ -436,14 +433,19 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
     # ── NOTA AL PIE ───────────────────────────────────────────────────────────
     recargo_pct = meta.get("recargo_porcentaje", 0)
     vencimiento_general = meta.get("vencimiento_general", "")
+    formato = meta.get("formato", "paralela")
 
-    nota_texto = (
-        "* Montos calculados en Bolívares al cambio. Dispone de 2 días para realizar el pago manteniendo esta tarifa actual. Para pagos efectuados directamente en divisas, le ofrecemos un descuento sobre el monto total de su deuda."
-    )
-    if vencimiento_general:
-        nota_texto += f"  Vencimiento general: {_fmt_fecha(vencimiento_general)}."
-    if tasa_dia:
-        nota_texto += f"  Tasa BCV referencial: Bs. {tasa_dia:,.2f}/USD."
+    nota_texto = ""
+    if formato == "bcv":
+        nota_texto = (
+            "* Montos calculados en Bolívares al cambio. Dispone de 2 días para realizar el pago manteniendo esta tarifa actual. Para pagos efectuados directamente en divisas, le ofrecemos un descuento sobre el monto total de su deuda."
+        )
+        if vencimiento_general:
+            nota_texto += f"  Vencimiento general: {_fmt_fecha(vencimiento_general)}."
+        if tasa_dia:
+            nota_texto += f"  Tasa BCV referencial: Bs. {tasa_dia:,.2f}/USD."
+    elif vencimiento_general:
+        nota_texto = f"* Vencimiento general: {_fmt_fecha(vencimiento_general)}."
 
     story.append(Spacer(1, 3 * mm))
     story.append(Paragraph(nota_texto, ST["nota_pie"]))

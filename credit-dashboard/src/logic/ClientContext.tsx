@@ -95,31 +95,10 @@ export function useClients() {
 }
 
 export function calculateClientDebt(client: Client): number {
-    const showBaseDebt = client.showBaseDebt ?? (localStorage.getItem('beirutShowBaseDebt') !== 'false');
-    const showSurchargeDebt = client.showSurchargeDebt ?? (localStorage.getItem('beirutShowSurchargeDebt') !== 'false');
-    
-    // Read global surcharge
-    const surchargeStr = localStorage.getItem('beirutSurchargePercent');
-    const surchargePercent = surchargeStr !== null && surchargeStr !== '' ? parseFloat(surchargeStr) : 30;
-    const factor = 1 + surchargePercent / 100;
-
-    const baseBalance = (client.invoices || []).reduce((sum: number, inv: Invoice) => sum + inv.balance, 0);
-
-    let finalDebt = 0;
-    if (showBaseDebt && showSurchargeDebt) {
-        finalDebt = baseBalance * factor; // or baseBalance + (baseBalance * surcharge)
-    } else if (showBaseDebt && !showSurchargeDebt) {
-        finalDebt = baseBalance;
-    } else if (!showBaseDebt && showSurchargeDebt) {
-        finalDebt = baseBalance * factor;
-    } else {
-        // If both are hidden, logically debt is 0 (or baseBalance based on product design)
-        // Usually we show the base balance if they hide both, to not show $0 erroneously
-        finalDebt = baseBalance;
-    }
-
-    return finalDebt;
+    // Always use the pure paralela (base) balance — no BCV surcharge applied.
+    return (client.invoices || []).reduce((sum: number, inv: Invoice) => sum + inv.balance, 0);
 }
+
 
 export function calculateClientStatus(client: Client): 'pagado' | 'pendiente' | 'en mora' {
     const invoices = client.invoices || [];

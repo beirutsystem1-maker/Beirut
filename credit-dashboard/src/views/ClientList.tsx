@@ -549,6 +549,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                     empresa: 'BEIRUT',
                     fecha_emision: new Date().toISOString().split('T')[0],
                     tasa_dia: tasaBCV,
+                    formato: rateMode,
                     recargo_porcentaje: surchargePercent,
                     vencimiento_general: ''
                 }

@@ -11,7 +11,7 @@ const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? createClient(SUPABASE_URL
 const USE_SUPABASE_DIRECT = !!supabase;
 
 
-export const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+export const SERVER_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
 // --- Helper for Direct Supabase Queries ---
 async function fetchFromSupabase() {

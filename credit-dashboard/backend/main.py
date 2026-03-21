@@ -227,6 +227,7 @@ class MetaNota(BaseModel):
     tasa_dia: float = 0
     recargo_porcentaje: float = 30
     vencimiento_general: str = ""
+    formato: str = "paralela"
 
 class NotaRequest(BaseModel):
     cliente: ClienteNota

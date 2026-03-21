@@ -369,14 +369,29 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
         ))
 
         total_fac = fac.get("total_con_recargo", 0)
-        sub_data = [[
-            Paragraph("", ST["subtotal_lbl"]),
-            Paragraph(
-                f"Total:   {_fmt_usd(total_fac)}",
-                ST["subtotal_lbl"],
-            ),
-        ]]
-        t_sub = Table(sub_data, colWidths=[ancho_content * 0.5, ancho_content * 0.5])
+        formato = meta.get("formato", "paralela")
+        tasa_dia = float(meta.get("tasa_dia", 0))
+
+        if formato == "bcv" and tasa_dia:
+            total_fac_bs = float(total_fac) * tasa_dia
+            sub_data = [[
+                Paragraph("", ST["subtotal_lbl"]),
+                Paragraph(
+                    f"Total:   {_fmt_usd(total_fac)} / Bs. {total_fac_bs:,.2f}",
+                    ST["subtotal_lbl"],
+                ),
+            ]]
+            t_sub = Table(sub_data, colWidths=[ancho_content * 0.3, ancho_content * 0.7])
+        else:
+            sub_data = [[
+                Paragraph("", ST["subtotal_lbl"]),
+                Paragraph(
+                    f"Total:   {_fmt_usd(total_fac)}",
+                    ST["subtotal_lbl"],
+                ),
+            ]]
+            t_sub = Table(sub_data, colWidths=[ancho_content * 0.5, ancho_content * 0.5])
+
         t_sub.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 1),

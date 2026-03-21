@@ -9,7 +9,6 @@ import { SERVER_URL } from '../logic/useClients';
 import { parseLocalDate, isOverdue } from '../utils/dates';
 import type { Client, Invoice } from '../logic/ClientContext';
 import { ClientMasterProfile } from '../components/ClientMasterProfile';
-import { generateStatementPDF } from '../utils/generateStatementPDF';
 const STATUS_CONFIG = {
     'en mora': { label: 'En Mora', pill: 'pill-overdue', row: 'bg-rose-50/40 dark:bg-rose-950/10' },
     'pendiente': { label: 'Pendiente', pill: 'pill-warning', row: 'bg-amber-50/40 dark:bg-amber-950/10' },
@@ -511,16 +510,73 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         const curSym = isBcv ? 'Bs. ' : '$';
 
         if (action === 'pdf') {
-            await generateStatementPDF({
-                clientName: client.name,
-                clientRif: client.rif,
-                clientPhone: client.phone,
-                invoices: activeInvoices as any,
-                transactions: relevantPayments,
-                surchargePercent,
-                currency: isBcv ? 'VES' : 'USD',
-                appliedRate: isBcv ? tasaBCV : 1
-            });
+            const payload = {
+                cliente: {
+                    nombre: client.name,
+                    cedula: client.rif || '',
+                    telefono: client.phone || ''
+                },
+                facturas: activeInvoices.map(inv => {
+                    const products = Array.isArray(inv.products) ? inv.products : [];
+                    const items = products.length > 0 ? products.map((p: any) => {
+                        const qty = Number(p.quantity) || 1;
+                        const price = Number(p.price ?? p.precio ?? p.unitPrice) || 0;
+                        return {
+                            cantidad: qty,
+                            descripcion: String(p.description ?? p.nombre ?? p.name ?? 'Producto'),
+                            precio_unitario: price,
+                            subtotal: qty * price
+                        };
+                    }) : [];
+
+                    const subtotalBase = products.length > 0
+                        ? products.reduce((s: number, p: any) => s + (Number(p.quantity) || 1) * (Number(p.price ?? p.precio ?? p.unitPrice) || 0), 0)
+                        : inv.totalAmount;
+                    const ivaUsd = Number((inv as any).iva ?? (inv as any).ivaAmount ?? 0);
+                    const totalUSD = subtotalBase + ivaUsd;
+                    const totalConRecargo = totalUSD * (1 + surchargePercent / 100);
+
+                    return {
+                        id: inv.valeryNoteId || inv.id.substring(0, 8),
+                        fecha_emision: inv.issueDate || '',
+                        fecha_vencimiento: inv.dueDate || '',
+                        estado: inv.status || 'pendiente',
+                        items,
+                        total_con_recargo: totalConRecargo
+                    };
+                }),
+                meta: {
+                    empresa: 'BEIRUT',
+                    fecha_emision: new Date().toISOString().split('T')[0],
+                    tasa_dia: tasaBCV,
+                    recargo_porcentaje: surchargePercent,
+                    vencimiento_general: ''
+                }
+            };
+
+            try {
+                const res = await fetch(`${SERVER_URL}/pdf/nota-cliente`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!res.ok) throw new Error('Error generando PDF en el servidor');
+                
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Estado_Cuenta_${client.name.replace(/\s+/g, '_')}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } catch (err) {
+                console.error("Error al obtener PDF:", err);
+                alert('No se pudo generar el PDF. Asegúrese de que el servidor backend (FastAPI) esté corriendo.');
+            }
+            
             setRateConfirmData(null);
             return;
         }

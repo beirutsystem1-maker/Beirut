@@ -392,14 +392,22 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
             ))
 
     # ── TOTAL FINAL ───────────────────────────────────────────────────────────
+    formato = meta.get("formato", "paralela")
+    tasa_dia = meta.get("tasa_dia", 0)
     total_general = sum(f.get("total_con_recargo", 0) for f in facturas_activas)
+
+    if formato == "bcv" and tasa_dia:
+        total_bs = float(total_general) * float(tasa_dia)
+        txt_total_val = f"Bs. {total_bs:,.2f}"
+    else:
+        txt_total_val = _fmt_usd(total_general)
 
     story.append(Spacer(1, 2 * mm))
     story.append(_hr_grueso(doc))
 
     total_data = [[
         Paragraph("TOTAL A PAGAR", ST["total_lbl"]),
-        Paragraph(_fmt_usd(total_general), ST["total_val"]),
+        Paragraph(txt_total_val, ST["total_val"]),
     ]]
     t_total = Table(total_data, colWidths=[ancho_content * 0.6, ancho_content * 0.4])
     t_total.setStyle(TableStyle([

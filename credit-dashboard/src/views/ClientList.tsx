@@ -964,12 +964,12 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                         {/* Paralela — opción principal, monto en USD */}
                         <button onClick={() => handleExportAction('paralela')}
                             style={{
-                                background: '#1A1B2E', color: '#FFFFFF', border: '0.5px solid #444',
+                                background: '#EEF2FF', color: '#3730A3', border: '0.5px solid #C7D2FE',
                                 borderRadius: 8, padding: '10px 14px', width: '100%', marginBottom: 8, cursor: 'pointer',
                                 display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left'
                             }}>
                             <div style={{ fontSize: 13, fontWeight: 600 }}>Tasa Paralela · ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(rateConfirmData.deudaParalela)}</div>
-                            <div style={{ fontSize: 11, marginTop: 2, color: '#AAAACC' }}>
+                            <div style={{ fontSize: 11, marginTop: 2, color: '#4F46E5' }}>
                                 Deuda en USD · sin conversión a Bs
                             </div>
                         </button>

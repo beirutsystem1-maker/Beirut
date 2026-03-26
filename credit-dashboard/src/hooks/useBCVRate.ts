@@ -1,14 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
-
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001/api';
+const DOLAR_API_URL = 'https://ve.dolarapi.com/v1/dolares';
+
+// Refrescar cada 30 minutos
+const REFRESH_INTERVAL_MS = 30 * 60 * 1000;
+const DEFAULT_BCV      = 42.50;
+const DEFAULT_PARALLEL = 52.00;
+
 interface UseBCVRateReturn {
-  rate: number;         // Tasa BCV oficial — siempre de la API
-  parallelRate: number; // Tasa paralela — editable manualmente, persiste
+  rate: number;
+  parallelRate: number;
   isLoading: boolean;
   error: string | null;
   lastUpdated: Date | null;
@@ -19,13 +26,7 @@ interface UseBCVRateReturn {
   setManualBcvRate: (rate: number | null) => void;
 }
 
-const BCV_API_URL = 'https://ve.dolarapi.com/v1/dolares';
-const ONE_MINUTE_MS = 60 * 1000;
-const DEFAULT_BCV = 42.50;
-const DEFAULT_PARALLEL = 52.00;
-
 export function useBCVRate(): UseBCVRateReturn {
-  // ── Tasa BCV oficial ─────────────────────────────────────────────
   const [rate, setRate] = useState<number>(() => {
     const manual = localStorage.getItem('bcv_rate_manual_oficial');
     if (manual) return parseFloat(manual);
@@ -33,7 +34,6 @@ export function useBCVRate(): UseBCVRateReturn {
     return saved ? parseFloat(saved) : DEFAULT_BCV;
   });
 
-  // ── Tasa Paralela (manual) ────────────────────────────────────────
   const [parallelRate, setParallelRate] = useState<number>(() => {
     const manual = localStorage.getItem('bcv_rate_manual_parallel');
     if (manual) return parseFloat(manual);
@@ -50,7 +50,10 @@ export function useBCVRate(): UseBCVRateReturn {
   const [source, setSource] = useState<string>('BCV via DolarAPI');
   const [isStale, setIsStale] = useState<boolean>(false);
 
-  // ── setManualRate: solo cambia parallelRate ───────────────────────
+  // Evitar múltiples fetches simultáneos
+  const isFetchingRef = useRef(false);
+
+  // ── setManualRate: solo cambia parallelRate ──────────────────────────────────
   const setManualRate = useCallback((newRate: number | null) => {
     if (newRate === null) {
       localStorage.removeItem('bcv_rate_manual_parallel');
@@ -62,7 +65,7 @@ export function useBCVRate(): UseBCVRateReturn {
     }
   }, []);
 
-  // ── setManualBcvRate: solo cambia rate (BCV oficial) ──────────────
+  // ── setManualBcvRate: solo cambia rate (BCV oficial) ─────────────────────────
   const setManualBcvRate = useCallback((newRate: number | null) => {
     if (newRate === null) {
       localStorage.removeItem('bcv_rate_manual_oficial');
@@ -74,122 +77,130 @@ export function useBCVRate(): UseBCVRateReturn {
     }
   }, []);
 
-  // ── fetchRate: obtiene BCV oficial de la API ──────────────────────
+  // ── fetchRate: Intenta server local → DolarAPI ──────────────────────────────
   const fetchRate = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setIsLoading(true);
     setError(null);
 
+    let oficial: number | null = null;
+    let paralelo: number | null = null;
+    let srcLabel = '';
+
+    // 1. Intentar endpoint del servidor local (que scrappea bcv.org.ve)
     try {
-      const response = await fetch(BCV_API_URL, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data && Array.isArray(data)) {
-        const oficial = data.find((d: any) => d.fuente === 'oficial');
-        const paralelo = data.find((d: any) => d.fuente === 'paralelo');
-
-        // Actualizar caché de tasa BCV oficial (solo si no hay manual activa)
-        if (oficial?.promedio) {
-          localStorage.setItem('bcv_rate_usd', oficial.promedio.toString());
-          const hasManual = localStorage.getItem('bcv_rate_manual_oficial');
-          if (!hasManual) {
-            setRate(oficial.promedio);
-          }
-        }
-
-        // Actualizar caché de paralela (solo si no hay manual activa)
-        if (paralelo?.promedio) {
-          localStorage.setItem('bcv_rate_parallel', paralelo.promedio.toString());
-          const hasManual = localStorage.getItem('bcv_rate_manual_parallel');
-          if (!hasManual) {
-            setParallelRate(paralelo.promedio);
-          }
-        }
-
-        const now = new Date();
-        setLastUpdated(now);
-        localStorage.setItem('bcv_rate_updated', now.toISOString());
-        setSource('BCV via DolarAPI');
-        setIsStale(false);
-
-        // Subir al historial en base de datos (Supabase)
-        if (supabase && oficial?.promedio) {
-          supabase.from('bcv_history').insert([
-            { rate: oficial.promedio, source: 've.dolarapi.com', updated_at: now.toISOString() }
-          ]).then(({ error }) => {
-            if (error) console.error('Error guardando historial BCV:', error.message);
-          });
+      const res = await fetch(`${SERVER_URL}/bcv/rate`, { signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.oficial && data.oficial > 1) {
+          oficial = data.oficial;
+          paralelo = data.paralelo || null;
+          srcLabel = `BCV via servidor (${data.source})`;
+          console.log(`[BCV] ✅ Tasa del servidor local: ${oficial} Bs/USD (${data.source})`);
         }
       }
-    } catch (err) {
-      console.error('Error fetching BCV rate:', err);
-      setError('Tasa no actualizada, usando último valor disponible');
+    } catch {
+      console.warn('[BCV] Servidor local no disponible, usando DolarAPI...');
+    }
 
-      // Fallback offline: usar caché guardado
+    // 2. Fallback: DolarAPI directamente desde el browser
+    if (!oficial) {
+      try {
+        const res = await fetch(DOLAR_API_URL, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            const off = data.find((d: any) => d.fuente === 'oficial');
+            const par = data.find((d: any) => d.fuente === 'paralelo');
+            if (off?.promedio) {
+              oficial = off.promedio;
+              paralelo = par?.promedio || null;
+              srcLabel = 'BCV via DolarAPI';
+              console.log(`[BCV] ✅ Tasa de DolarAPI: ${oficial} Bs/USD`);
+            }
+          }
+        }
+      } catch (err2) {
+        console.error('[BCV] DolarAPI también falló:', err2);
+      }
+    }
+
+    if (oficial) {
+      // Guardar en caché
+      localStorage.setItem('bcv_rate_usd', oficial.toString());
+      const hasManualOficial = localStorage.getItem('bcv_rate_manual_oficial');
+      if (!hasManualOficial) setRate(oficial);
+
+      if (paralelo) {
+        localStorage.setItem('bcv_rate_parallel', paralelo.toString());
+        const hasManualParalelo = localStorage.getItem('bcv_rate_manual_parallel');
+        if (!hasManualParalelo) setParallelRate(paralelo);
+      }
+
+      const now = new Date();
+      setLastUpdated(now);
+      setSource(srcLabel);
+      setIsStale(false);
+      localStorage.setItem('bcv_rate_updated', now.toISOString());
+
+      // Guardar historial en Supabase
+      if (supabase) {
+        supabase.from('bcv_history').insert([
+          { rate: oficial, source: srcLabel, updated_at: now.toISOString() }
+        ]).then(({ error: e }) => {
+          if (e) console.error('Error guardando historial BCV:', e.message);
+        });
+      }
+
+      setError(null);
+    } else {
+      // Sin datos frescos — usar caché y avisar
       const savedRate = localStorage.getItem('bcv_rate_usd');
       if (savedRate) setRate(parseFloat(savedRate));
-    } finally {
-      setIsLoading(false);
+      setError('Tasa no actualizada, usando último valor disponible');
+      setIsStale(true);
     }
+
+    setIsLoading(false);
+    isFetchingRef.current = false;
   }, []);
 
-  // ── Efecto: Actualización automática diaria a las 9:00 AM ─────────
+  // ── Efecto: fetch al montar + cada 30 minutos ────────────────────────────────
   useEffect(() => {
-    const checkStaleness = () => {
-      if (!lastUpdated) {
-        setIsStale(true);
-        return;
-      }
-      const diff = Date.now() - lastUpdated.getTime();
-      setIsStale(diff > 12 * 60 * 60 * 1000); // Consideramos stale después de 12h
-    };
+    // Calcular si la tasa en caché es reciente (< 30 minutos)
+    const lastUpdateStr = localStorage.getItem('bcv_rate_updated');
+    const lastUpd = lastUpdateStr ? new Date(lastUpdateStr) : null;
+    const staleMs = lastUpd ? Date.now() - lastUpd.getTime() : Infinity;
 
-    checkStaleness();
-    const staleInterval = setInterval(checkStaleness, 60000);
+    if (staleMs > REFRESH_INTERVAL_MS) {
+      // La tasa es vieja o nunca se cargó → fetch inmediato
+      fetchRate();
+    } else {
+      // Tasa reciente → solo apagar el spinner
+      setIsLoading(false);
+      // Programar el próximo fetch en el tiempo restante
+      const msUntilNext = REFRESH_INTERVAL_MS - staleMs;
+      const timeout = setTimeout(() => fetchRate(), msUntilNext);
+      return () => clearTimeout(timeout);
+    }
 
-    const checkAndFetchAuto = () => {
-      const nowNode = new Date();
-      const lastUpdateStr = localStorage.getItem('bcv_rate_updated');
-      const lastUpd = lastUpdateStr ? new Date(lastUpdateStr) : null;
+    // Actualizar badge de "stale" cada minuto
+    const staleInterval = setInterval(() => {
+      const su = localStorage.getItem('bcv_rate_updated');
+      const lu = su ? new Date(su) : null;
+      const diff = lu ? Date.now() - lu.getTime() : Infinity;
+      setIsStale(diff > REFRESH_INTERVAL_MS);
+    }, 60_000);
 
-      if (!lastUpd) {
-        fetchRate();
-        return;
-      }
-
-      const isSameDay = lastUpd.toDateString() === nowNode.toDateString();
-      const wasUpdatedAfter9 = lastUpd.getHours() >= 9;
-      const isNowAfter9 = nowNode.getHours() >= 9;
-
-      // Actualizar automáticamente si hoy son pasadas las 9:00 AM y aún no nos hemos actualizado
-      if (isNowAfter9 && (!isSameDay || !wasUpdatedAfter9)) {
-        fetchRate();
-      }
-    };
-
-    // Validar apenas entra
-    if (isLoading) checkAndFetchAuto();
-
-    // Comprobar cada 1 minuto (silenciosamente)
-    const intervalId = setInterval(() => {
-      checkAndFetchAuto();
-    }, ONE_MINUTE_MS);
-
-    // Initial timeout to hide loading if nothing triggered
-    setTimeout(() => setIsLoading(false), 2000);
+    // Intervalo de refresco cada 30 minutos
+    const refreshInterval = setInterval(() => fetchRate(), REFRESH_INTERVAL_MS);
 
     return () => {
-      clearInterval(intervalId);
       clearInterval(staleInterval);
+      clearInterval(refreshInterval);
     };
-  }, [fetchRate, lastUpdated]); // Quitamos "isLoading" de las deps para no crear loop
+  }, [fetchRate]);
 
   return {
     rate,

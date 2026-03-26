@@ -103,6 +103,8 @@ app.use('/api/clients', require('./routes/clients'));
 app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/pdf', require('./routes/pdf'));
+app.use('/api/bcv', require('./routes/bcv'));
+
 
 // GET /api/status — sync state for the frontend badge
 app.get('/api/status', (_req, res) => {

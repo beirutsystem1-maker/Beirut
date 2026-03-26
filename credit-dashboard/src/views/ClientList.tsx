@@ -520,10 +520,22 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                     const products = Array.isArray(inv.products) ? inv.products : [];
                     const mathFactor = rateMode === 'bcv' ? (1 + surchargePercent / 100) : 1;
 
+                    // Use inv.balance (remaining balance after payments) as the real base.
+                    // inv.totalAmount is the original credit; inv.balance is what's still owed.
+                    const balanceUSD = Number(inv.balance ?? inv.totalAmount ?? 0);
+                    const ivaUsd = Number((inv as any).iva ?? (inv as any).ivaAmount ?? 0);
+
+                    // If there are products, scale their prices proportionally so the
+                    // item subtotals add up to the real balance (not the original total).
+                    const rawProductsTotal = products.length > 0
+                        ? products.reduce((s: number, p: any) => s + (Number(p.quantity) || 1) * (Number(p.price ?? p.precio ?? p.unitPrice) || 0), 0)
+                        : 0;
+                    const scaleFactor = rawProductsTotal > 0 ? balanceUSD / rawProductsTotal : 1;
+
                     const items = products.length > 0 ? products.map((p: any) => {
                         const qty = Number(p.quantity) || 1;
                         const priceBase = Number(p.price ?? p.precio ?? p.unitPrice) || 0;
-                        const priceAdjusted = priceBase * mathFactor;
+                        const priceAdjusted = priceBase * scaleFactor * mathFactor;
                         return {
                             cantidad: qty,
                             descripcion: String(p.description ?? p.nombre ?? p.name ?? 'Producto'),
@@ -532,12 +544,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                         };
                     }) : [];
 
-                    const subtotalBase = products.length > 0
-                        ? products.reduce((s: number, p: any) => s + (Number(p.quantity) || 1) * (Number(p.price ?? p.precio ?? p.unitPrice) || 0), 0)
-                        : inv.totalAmount;
-                    const ivaUsd = Number((inv as any).iva ?? (inv as any).ivaAmount ?? 0);
-                    const totalUSD = subtotalBase + ivaUsd;
-                    const totalConRecargo = totalUSD * mathFactor;
+                    const totalConRecargo = (balanceUSD + ivaUsd) * mathFactor;
 
                     return {
                         id: inv.valeryNoteId || inv.id.substring(0, 8),

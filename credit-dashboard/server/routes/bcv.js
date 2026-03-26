@@ -34,9 +34,8 @@ async function scrapeBCV() {
         if (!response.ok) throw new Error(`BCV HTTP ${response.status}`);
         const html = await response.text();
 
-        // El BCV muestra la tasa USD en un elemento con id="dolar"
-        const match = html.match(/id=["']dolar["'][^>]*>[\s\S]*?<strong[^>]*>([\d.,]+)<\/strong>/i)
-            || html.match(/<strong[^>]*>\s*([\d]{2}[.,][\d]+)\s*<\/strong>/);
+        // El BCV muestra la tasa USD en un bloque con un span indicando 'USD'
+        const match = html.match(/<span>\s*USD\s*<\/span>[\s\S]*?<strong[^>]*>\s*([\d.,]+)\s*<\/strong>/i);
 
         if (!match) throw new Error('No se pudo extraer la tasa USD del HTML del BCV');
 

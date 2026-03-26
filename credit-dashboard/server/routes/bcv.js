@@ -17,32 +17,41 @@ const CACHE_TTL = 10 * 60 * 1000; // 10 minutos
 
 // ── Intenta obtener la tasa del BCV directamente ─────────────────────────────
 async function scrapeBCV() {
-    const response = await fetch('https://www.bcv.org.ve/', {
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'es-VE,es;q=0.9',
-        },
-        signal: AbortSignal.timeout(8000),
-    });
+    // El certificado del BCV es inválido, ignoramos temporalmente la verificación SSL
+    const oldTls = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-    if (!response.ok) throw new Error(`BCV HTTP ${response.status}`);
-    const html = await response.text();
+    try {
+        const response = await fetch('https://www.bcv.org.ve/', {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'es-VE,es;q=0.9',
+            },
+            signal: AbortSignal.timeout(8000),
+        });
 
-    // El BCV muestra la tasa USD en un elemento con id="dolar"
-    // Estructura: <div id="dolar"><strong>42,12</strong></div>
-    //             o a veces: <div id="dolar">...<strong>42,12345</strong>...
-    const match = html.match(/id=["']dolar["'][^>]*>[\s\S]*?<strong[^>]*>([\d.,]+)<\/strong>/i)
-        || html.match(/<strong[^>]*>\s*([\d]{2}[.,][\d]+)\s*<\/strong>/);
+        if (!response.ok) throw new Error(`BCV HTTP ${response.status}`);
+        const html = await response.text();
 
-    if (!match) throw new Error('No se pudo extraer la tasa USD del HTML del BCV');
+        // El BCV muestra la tasa USD en un elemento con id="dolar"
+        const match = html.match(/id=["']dolar["'][^>]*>[\s\S]*?<strong[^>]*>([\d.,]+)<\/strong>/i)
+            || html.match(/<strong[^>]*>\s*([\d]{2}[.,][\d]+)\s*<\/strong>/);
 
-    // El BCV Venezuela usa coma como decimal: "42,1234" → 42.1234
-    const raw = match[1].trim().replace(/\./g, '').replace(',', '.');
-    const rate = parseFloat(raw);
+        if (!match) throw new Error('No se pudo extraer la tasa USD del HTML del BCV');
 
-    if (isNaN(rate) || rate < 1) throw new Error(`Tasa inválida extraída: "${match[1]}"`);
-    return rate;
+        const raw = match[1].trim().replace(/\./g, '').replace(',', '.');
+        const rate = parseFloat(raw);
+
+        if (isNaN(rate) || rate < 1) throw new Error(`Tasa inválida extraída: "${match[1]}"`);
+        return rate;
+    } finally {
+        if (oldTls === undefined) {
+            delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+        } else {
+            process.env.NODE_TLS_REJECT_UNAUTHORIZED = oldTls;
+        }
+    }
 }
 
 // ── Fallback: DolarAPI ────────────────────────────────────────────────────────

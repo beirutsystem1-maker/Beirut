@@ -255,11 +255,15 @@ export function Layout({
                                     readOnly={!isBcvRateUnlocked}
                                     onChange={(e) => setTasaBcvInputValue(e.target.value)}
                                     onBlur={(e) => {
-                                        const val = parseFloat(e.target.value);
-                                        if (!isNaN(val) && val > 0) {
-                                            setManualBcvRate(val);
+                                        if (e.target.value === '') {
+                                            setManualBcvRate(null);
                                         } else {
-                                            setTasaBcvInputValue(rate.toString());
+                                            const val = parseFloat(e.target.value);
+                                            if (!isNaN(val) && val > 0) {
+                                                setManualBcvRate(val);
+                                            } else {
+                                                setTasaBcvInputValue(rate.toString());
+                                            }
                                         }
                                         setIsBcvRateUnlocked(false);
                                     }}
@@ -318,11 +322,15 @@ export function Layout({
                                 readOnly={!isRateUnlocked}
                                 onChange={(e) => setTasaInputValue(e.target.value)}
                                 onBlur={(e) => {
-                                    const val = parseFloat(e.target.value);
-                                    if (!isNaN(val) && val > 0) {
-                                        setManualRate(val);
+                                    if (e.target.value === '') {
+                                        setManualRate(null);
                                     } else {
-                                        setTasaInputValue(parallelRate.toString());
+                                        const val = parseFloat(e.target.value);
+                                        if (!isNaN(val) && val > 0) {
+                                            setManualRate(val);
+                                        } else {
+                                            setTasaInputValue(parallelRate.toString());
+                                        }
                                     }
                                     setIsRateUnlocked(false);
                                 }}

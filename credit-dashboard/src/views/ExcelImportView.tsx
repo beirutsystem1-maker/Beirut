@@ -74,8 +74,15 @@ function toNum(v: unknown): number {
 
 function toStr(v: unknown): string {
     if (v == null) return '';
-    if (v instanceof Date) return v.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    return String(v).trim();
+    if (v instanceof Date) {
+        // Build "DD/MM/YYYY" manually to avoid locale invisible unicode characters entirely
+        const d = String(v.getDate()).padStart(2, '0');
+        const m = String(v.getMonth() + 1).padStart(2, '0');
+        const y = v.getFullYear();
+        return `${d}/${m}/${y}`;
+    }
+    // Remove invisible characters like LTR mark \u200E
+    return String(v).replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
 }
 
 function parseExcelFile(wb: any): InvoiceRow[] {
@@ -121,7 +128,7 @@ function parseExcelFile(wb: any): InvoiceRow[] {
         const cells = row.map(toStr);
         const low = cells.map(s => s.toLowerCase());
 
-        const maybeDateCol = cells.find(c => /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/.test(c) || /^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/.test(c));
+        const maybeDateCol = cells.find(c => /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/.test(c) || /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/.test(c));
         if (maybeDateCol) { const m = maybeDateCol.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/); if (m) lastSeenDate = m[1]; }
         if (cells.every(c => c === '')) continue;
 
@@ -139,7 +146,16 @@ function parseExcelFile(wb: any): InvoiceRow[] {
         const docVal = M_DOC >= 0 ? cells[M_DOC] : '';
         if (docVal && /^\d{5,}/.test(docVal)) {
             inProductSection = false; P_COD = P_NOM = P_CANT = P_PREC = -1;
-            let extractedDate = M_FECHA >= 0 ? cells[M_FECHA] : '';
+            let extractedDate = '';
+            
+            if (M_FECHA >= 0) {
+                const cellVal = cells[M_FECHA];
+                const cleanMatch = cellVal.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
+                if (cleanMatch) {
+                    extractedDate = cleanMatch[1];
+                }
+            }
+            
             if (!extractedDate || extractedDate === '-') extractedDate = lastSeenDate;
 
             currentIva = M_IMPUESTO >= 0 ? toNum(row[M_IMPUESTO]) : 0;

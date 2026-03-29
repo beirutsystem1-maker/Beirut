@@ -170,7 +170,20 @@ export function useBCVRate(): UseBCVRateReturn {
       // Guardar en caché
       localStorage.setItem('bcv_rate_usd', oficial.toString());
       const hasManualOficial = localStorage.getItem('bcv_rate_manual_oficial');
-      if (!hasManualOficial) setRate(oficial);
+
+      if (hasManualOficial) {
+        const manualVal = parseFloat(hasManualOficial);
+        // Si la tasa manual está desviada más del 30% de la real → descartarla
+        const deviation = Math.abs(manualVal - oficial) / oficial;
+        if (deviation > 0.30) {
+          console.warn(`[BCV] Tasa manual (${manualVal}) difiere ${(deviation*100).toFixed(0)}% de la real (${oficial}). Reseteando a automático.`);
+          localStorage.removeItem('bcv_rate_manual_oficial');
+          setRate(oficial);
+        }
+        // Si la tasa manual es razonable, respetarla
+      } else {
+        setRate(oficial);
+      }
 
       if (paralelo) {
         localStorage.setItem('bcv_rate_parallel', paralelo.toString());

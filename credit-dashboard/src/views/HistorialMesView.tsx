@@ -661,27 +661,29 @@ export function HistorialMesView() {
     const [pagoFicha, setPagoFicha] = useState<FichaEntry | null>(null);
     const [historialFicha, setHistorialFicha] = useState<FichaEntry | null>(null);
 
-    // Build flat list of all fichas, sorted by client+date
+    // Build flat list of all fichas, sorted by client+date. Exclude 'aldia' (paid).
     const allFichas: FichaEntry[] = useMemo(() => {
         return clients.flatMap(client =>
-            (client.invoices || []).map((inv: Invoice): FichaEntry => {
-                const orig = Number(inv.totalAmount) || 0;
-                const pag = Math.max(0, orig - (Number(inv.balance) || 0));
-                const saldoBase = Number(inv.balance) || 0;
-                const total = Math.round(saldoBase * FACTOR * 100) / 100;
-                const pct = orig > 0 ? Math.round(pag / orig * 100) : (saldoBase <= 0 ? 100 : 0);
-                return {
-                    clientId: client.id,
-                    clientName: client.name,
-                    invoiceId: inv.id,
-                    valeryNoteId: inv.valeryNoteId || '',
-                    estado: deriveEstado(inv),
-                    orig, pag, saldoBase, total, pct,
-                    emision: inv.issueDate,
-                    vence: inv.dueDate,
-                    invoice: inv,
-                };
-            })
+            (client.invoices || [])
+                .filter((inv: Invoice) => deriveEstado(inv) !== 'aldia')
+                .map((inv: Invoice): FichaEntry => {
+                    const orig = Number(inv.totalAmount) || 0;
+                    const pag = Math.max(0, orig - (Number(inv.balance) || 0));
+                    const saldoBase = Number(inv.balance) || 0;
+                    const total = Math.round(saldoBase * FACTOR * 100) / 100;
+                    const pct = orig > 0 ? Math.round(pag / orig * 100) : (saldoBase <= 0 ? 100 : 0);
+                    return {
+                        clientId: client.id,
+                        clientName: client.name,
+                        invoiceId: inv.id,
+                        valeryNoteId: inv.valeryNoteId || '',
+                        estado: deriveEstado(inv),
+                        orig, pag, saldoBase, total, pct,
+                        emision: inv.issueDate,
+                        vence: inv.dueDate,
+                        invoice: inv,
+                    };
+                })
         );
     }, [clients, FACTOR]);
 

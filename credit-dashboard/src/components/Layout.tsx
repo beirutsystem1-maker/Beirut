@@ -3,7 +3,7 @@ import {
     Users, Moon, Sun,
     ChevronLeft, ChevronRight, Bell, Search,
     CreditCard, FileSpreadsheet, Settings,
-    Lock, Unlock, CalendarDays, RefreshCw
+    Lock, Unlock, CalendarDays, RefreshCw, Archive
 } from 'lucide-react';
 import { useTheme } from '../logic/ThemeProvider';
 import type { ViewState } from '../App';
@@ -16,6 +16,7 @@ const NAV_ITEMS = [
     { id: 'clients' as ViewState, label: 'Directorio', icon: Users },
     { id: 'excel' as ViewState, label: 'Facturación Excel', icon: FileSpreadsheet },
     { id: 'historial' as ViewState, label: 'Historial × Mes', icon: CalendarDays },
+    { id: 'fichas-pagadas' as ViewState, label: 'Fichas Finalizadas', icon: Archive },
     { id: 'settings' as ViewState, label: 'Configuración', icon: Settings },
 ];
 
@@ -24,6 +25,7 @@ const PAGE_TITLES: Record<ViewState, string> = {
     excel: 'Importación de Facturación',
     settings: 'Configuración y Control Maestro',
     historial: 'Historial × Mes',
+    'fichas-pagadas': 'Fichas Finalizadas y Pagadas',
 };
 
 export function Layout({

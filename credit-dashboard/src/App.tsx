@@ -5,12 +5,13 @@ import { ClientList } from './views/ClientList';
 import { ExcelImportView } from './views/ExcelImportView';
 import { SettingsView } from './views/SettingsView';
 import { HistorialMesView } from './views/HistorialMesView';
+import { HistorialFichasPagadasView } from './views/HistorialFichasPagadasView';
 import { LockScreen } from './components/LockScreen';
 import { ClientProvider } from './logic/ClientContext';
 import { ToastProvider } from './logic/ToastContext';
 import { SettingsProvider } from './logic/SettingsContext';
 
-export type ViewState = 'clients' | 'excel' | 'settings' | 'historial';
+export type ViewState = 'clients' | 'excel' | 'settings' | 'historial' | 'fichas-pagadas';
 
 function App() {
   const [currentView, setCurrentView] = useState<ViewState>('clients');
@@ -37,6 +38,7 @@ function App() {
                 {currentView === 'excel' && <ExcelImportView />}
                 {currentView === 'settings' && <SettingsView />}
                 {currentView === 'historial' && <HistorialMesView />}
+                {currentView === 'fichas-pagadas' && <HistorialFichasPagadasView />}
               </Layout>
             </ClientProvider>
           )}

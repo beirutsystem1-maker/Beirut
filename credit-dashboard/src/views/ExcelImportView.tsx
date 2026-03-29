@@ -148,9 +148,10 @@ function parseExcelFile(wb: any): InvoiceRow[] {
             inProductSection = false; P_COD = P_NOM = P_CANT = P_PREC = -1;
             let extractedDate = '';
             
-            if (M_FECHA >= 0) {
-                const cellVal = cells[M_FECHA];
-                const cleanMatch = cellVal.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
+            // Aggressively search the entire row for a date string
+            const rawRowDate = cells.find(c => /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/.test(c) || /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/.test(c));
+            if (rawRowDate) {
+                const cleanMatch = rawRowDate.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
                 if (cleanMatch) {
                     extractedDate = cleanMatch[1];
                 }

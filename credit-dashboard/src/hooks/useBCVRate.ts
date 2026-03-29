@@ -7,11 +7,15 @@ const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? createClient(SUPABASE_URL
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001/api';
 const DOLAR_API_URL = 'https://ve.dolarapi.com/v1/dolares';
+// API alternativa: devuelve VES por 1 USD directamente
+const EXCHANGERATE_API_URL = 'https://open.er-api.com/v6/latest/USD';
 
 // Refrescar cada 1 minuto
 const REFRESH_INTERVAL_MS = 1 * 60 * 1000;
-const DEFAULT_BCV      = 42.50;
-const DEFAULT_PARALLEL = 52.00;
+// Si la caché tiene más de 2 horas, ignorarla completamente
+const CACHE_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+const DEFAULT_BCV      = 100;
+const DEFAULT_PARALLEL = 120;
 
 interface UseBCVRateReturn {
   rate: number;
@@ -28,6 +32,16 @@ interface UseBCVRateReturn {
 
 export function useBCVRate(): UseBCVRateReturn {
   const [rate, setRate] = useState<number>(() => {
+    // Si la caché guardada es muy vieja (>2h), no usarla como valor inicial
+    const updatedStr = localStorage.getItem('bcv_rate_updated');
+    const cacheAge = updatedStr ? Date.now() - new Date(updatedStr).getTime() : Infinity;
+    if (cacheAge > CACHE_MAX_AGE_MS) {
+      // Limpiar caché vieja para evitar mostrar datos obsoletos
+      localStorage.removeItem('bcv_rate_usd');
+      localStorage.removeItem('bcv_rate_manual_oficial');
+      localStorage.removeItem('bcv_rate_updated');
+      return DEFAULT_BCV;
+    }
     const manual = localStorage.getItem('bcv_rate_manual_oficial');
     if (manual) return parseFloat(manual);
     const saved = localStorage.getItem('bcv_rate_usd');
@@ -77,7 +91,7 @@ export function useBCVRate(): UseBCVRateReturn {
     }
   }, []);
 
-  // ── fetchRate: Intenta server local → DolarAPI ──────────────────────────────
+  // ── fetchRate: Intenta server local → DolarAPI → ExchangeRate-API ───────────
   const fetchRate = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -90,7 +104,7 @@ export function useBCVRate(): UseBCVRateReturn {
 
     // 1. Intentar endpoint del servidor local (que scrappea bcv.org.ve)
     try {
-      const res = await fetch(`${SERVER_URL}/bcv/rate`, { signal: AbortSignal.timeout(6000) });
+      const res = await fetch(`${SERVER_URL}/bcv/rate`, { signal: AbortSignal.timeout(4000) });
       if (res.ok) {
         const data = await res.json();
         if (data.oficial && data.oficial > 1) {
@@ -101,10 +115,10 @@ export function useBCVRate(): UseBCVRateReturn {
         }
       }
     } catch {
-      console.warn('[BCV] Servidor local no disponible, usando DolarAPI...');
+      console.warn('[BCV] Servidor local no disponible, probando DolarAPI...');
     }
 
-    // 2. Fallback: DolarAPI directamente desde el browser
+    // 2. Fallback A: DolarAPI — verificar que los datos no sean viejos (>24h)
     if (!oficial) {
       try {
         const res = await fetch(DOLAR_API_URL, { signal: AbortSignal.timeout(5000) });
@@ -114,15 +128,41 @@ export function useBCVRate(): UseBCVRateReturn {
             const off = data.find((d: any) => d.fuente === 'oficial');
             const par = data.find((d: any) => d.fuente === 'paralelo');
             if (off?.promedio) {
-              oficial = off.promedio;
-              paralelo = par?.promedio || null;
-              srcLabel = 'BCV via DolarAPI';
-              console.log(`[BCV] ✅ Tasa de DolarAPI: ${oficial} Bs/USD`);
+              // Verificar que DolarAPI tiene datos recientes (<48h)
+              const apiAge = off.fechaActualizacion
+                ? Date.now() - new Date(off.fechaActualizacion).getTime()
+                : 0;
+              const MAX_API_AGE = 48 * 60 * 60 * 1000; // 48 horas
+              if (apiAge < MAX_API_AGE) {
+                oficial = off.promedio;
+                paralelo = par?.promedio || null;
+                srcLabel = 'BCV via DolarAPI';
+                console.log(`[BCV] ✅ Tasa de DolarAPI: ${oficial} Bs/USD`);
+              } else {
+                console.warn(`[BCV] DolarAPI datos muy viejos (${Math.round(apiAge/3600000)}h), probando alternativa...`);
+              }
             }
           }
         }
       } catch (err2) {
-        console.error('[BCV] DolarAPI también falló:', err2);
+        console.error('[BCV] DolarAPI falló:', err2);
+      }
+    }
+
+    // 3. Fallback B: open.er-api.com (tasa USD→VES en tiempo real)
+    if (!oficial) {
+      try {
+        const res = await fetch(EXCHANGERATE_API_URL, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.rates?.VES && data.rates.VES > 1) {
+            oficial = data.rates.VES;
+            srcLabel = 'USD→VES via ExchangeRate-API';
+            console.log(`[BCV] ✅ Tasa ExchangeRate-API: ${oficial} Bs/USD`);
+          }
+        }
+      } catch (err3) {
+        console.error('[BCV] ExchangeRate-API también falló:', err3);
       }
     }
 

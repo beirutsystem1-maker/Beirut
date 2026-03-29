@@ -114,7 +114,6 @@ function parseExcelFile(wb: any): InvoiceRow[] {
     const M_IMPUESTO = findCol(mainH, ['impuesto']);
     const M_IGTF = findCol(mainH, ['total igtf', 'igtf']);
     const M_VEND = findCol(mainH, ['vendedor']);
-    const M_FECHA = findCol(mainH, ['fecha emisi', 'emision', 'fecha']);
 
     const invoices: InvoiceRow[] = [];
     let current: InvoiceRow | null = null;

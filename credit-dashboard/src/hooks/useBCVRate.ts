@@ -8,8 +8,8 @@ const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? createClient(SUPABASE_URL
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001/api';
 const DOLAR_API_URL = 'https://ve.dolarapi.com/v1/dolares';
 
-// Refrescar cada 30 minutos
-const REFRESH_INTERVAL_MS = 30 * 60 * 1000;
+// Refrescar cada 1 minuto
+const REFRESH_INTERVAL_MS = 1 * 60 * 1000;
 const DEFAULT_BCV      = 42.50;
 const DEFAULT_PARALLEL = 52.00;
 
@@ -166,39 +166,25 @@ export function useBCVRate(): UseBCVRateReturn {
     isFetchingRef.current = false;
   }, []);
 
-  // ── Efecto: fetch al montar + cada 30 minutos ────────────────────────────────
+  // ── Efecto: fetch al montar + cada 1 minuto ─────────────────────────────────
   useEffect(() => {
-    // Calcular si la tasa en caché es reciente (< 30 minutos)
-    const lastUpdateStr = localStorage.getItem('bcv_rate_updated');
-    const lastUpd = lastUpdateStr ? new Date(lastUpdateStr) : null;
-    const staleMs = lastUpd ? Date.now() - lastUpd.getTime() : Infinity;
+    // Siempre hacer fetch inmediato al montar
+    fetchRate();
 
-    if (staleMs > REFRESH_INTERVAL_MS) {
-      // La tasa es vieja o nunca se cargó → fetch inmediato
-      fetchRate();
-    } else {
-      // Tasa reciente → solo apagar el spinner
-      setIsLoading(false);
-      // Programar el próximo fetch en el tiempo restante
-      const msUntilNext = REFRESH_INTERVAL_MS - staleMs;
-      const timeout = setTimeout(() => fetchRate(), msUntilNext);
-      return () => clearTimeout(timeout);
-    }
+    // Intervalo de refresco cada 1 minuto
+    const refreshInterval = setInterval(() => fetchRate(), REFRESH_INTERVAL_MS);
 
-    // Actualizar badge de "stale" cada minuto
+    // Actualizar badge de "stale" cada 30 segundos
     const staleInterval = setInterval(() => {
       const su = localStorage.getItem('bcv_rate_updated');
       const lu = su ? new Date(su) : null;
       const diff = lu ? Date.now() - lu.getTime() : Infinity;
       setIsStale(diff > REFRESH_INTERVAL_MS);
-    }, 60_000);
-
-    // Intervalo de refresco cada 30 minutos
-    const refreshInterval = setInterval(() => fetchRate(), REFRESH_INTERVAL_MS);
+    }, 30_000);
 
     return () => {
-      clearInterval(staleInterval);
       clearInterval(refreshInterval);
+      clearInterval(staleInterval);
     };
   }, [fetchRate]);
 

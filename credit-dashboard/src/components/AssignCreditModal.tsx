@@ -108,11 +108,14 @@ export function AssignCreditModal({ isOpen, onClose, invoice, onAssign }: Assign
                 return;
             }
 
+            const safeIssueDate = normalizeToISO(invoice.fechaEmision) || toLocalDateString(new Date());
+            const safeDueDate = dueDate || safeIssueDate;
+
             await appendExcelInvoice({
                 clientId: selectedClient.id,
                 docNumber: invoice.documento,
-                issueDate: normalizeToISO(invoice.fechaEmision),
-                dueDate: dueDate,
+                issueDate: safeIssueDate,
+                dueDate: safeDueDate,
                 totalAmount: invoice.totalOperacion,
                 products: invoice.products || []
             });

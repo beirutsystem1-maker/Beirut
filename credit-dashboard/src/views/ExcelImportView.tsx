@@ -704,7 +704,12 @@ export function ExcelImportView() {
                                     >
                                         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30 shrink-0 rounded-t-2xl">
                                             <div>
-                                                <h3 className="text-lg font-bold text-foreground">Detalle de Factura <span className="font-mono text-[#635BFF]">{inv.documento}</span></h3>
+                                                <div className="flex items-center gap-3">
+                                                    <h3 className="text-lg font-bold text-foreground">Detalle de Factura <span className="font-mono text-[#635BFF]">{inv.documento}</span></h3>
+                                                    <span className="px-2 py-0.5 rounded pl-1 pr-2 bg-muted border border-border flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                                                        <Calendar className="w-3 h-3" /> {inv.fechaEmision}
+                                                    </span>
+                                                </div>
                                                 <p className="text-sm text-muted-foreground mt-0.5">{inv.products.length} producto{inv.products.length !== 1 ? 's' : ''}</p>
                                             </div>
                                             <button

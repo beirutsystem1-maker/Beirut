@@ -335,6 +335,11 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
                 desc  = item.get("descripcion", "Ítem")
                 p_u   = item.get("precio_unitario", 0)
                 sub   = item.get("subtotal", qty * p_u)
+                
+                if es_bcv and tasa_dia:
+                    sub_txt = f"Bs. {(float(sub) * tasa_dia):,.2f}"
+                else:
+                    sub_txt = _fmt_usd(sub)
 
                 # Descripción [izq] — precio [der]
                 fila_data = [[
@@ -342,7 +347,7 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
                         f"{qty} × {desc}",
                         ST["item_desc"],
                     ),
-                    Paragraph(_fmt_usd(sub), ST["item_precio"]),
+                    Paragraph(sub_txt, ST["item_precio"]),
                 ]]
                 t_item = Table(
                     fila_data,
@@ -376,11 +381,11 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
             sub_data = [[
                 Paragraph("", ST["subtotal_lbl"]),
                 Paragraph(
-                    f"Total:   {_fmt_usd(total_fac)} / Bs. {total_fac_bs:,.2f}",
+                    f"Total:   Bs. {total_fac_bs:,.2f}",
                     ST["subtotal_lbl"],
                 ),
             ]]
-            t_sub = Table(sub_data, colWidths=[ancho_content * 0.3, ancho_content * 0.7])
+            t_sub = Table(sub_data, colWidths=[ancho_content * 0.5, ancho_content * 0.5])
         else:
             sub_data = [[
                 Paragraph("", ST["subtotal_lbl"]),

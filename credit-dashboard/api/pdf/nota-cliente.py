@@ -157,7 +157,12 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
                 p_u   = item.get("precio_unitario", 0)
                 sub   = item.get("subtotal", qty * float(p_u))
                 
-                fila_data = [[Paragraph(f"{qty} × {desc}", ST["item_desc"]), Paragraph(_fmt_usd(sub), ST["item_precio"])]]
+                if es_bcv and tasa_dia:
+                    sub_txt = f"Bs. {(float(sub) * tasa_dia):,.2f}"
+                else:
+                    sub_txt = _fmt_usd(sub)
+
+                fila_data = [[Paragraph(f"{qty} × {desc}", ST["item_desc"]), Paragraph(sub_txt, ST["item_precio"])]]
                 t_item = Table(fila_data, colWidths=[ancho_content * 0.75, ancho_content * 0.25])
                 t_item.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOTTOMPADDING", (0, 0), (-1, -1), 1), ("TOPPADDING", (0, 0), (-1, -1), 1)]))
                 story.append(t_item)
@@ -173,8 +178,8 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
 
         if formato == "bcv" and tasa_dia:
             total_fac_bs = float(total_fac) * tasa_dia
-            sub_data = [[Paragraph("", ST["subtotal_lbl"]), Paragraph(f"Total:   {_fmt_usd(total_fac)} / Bs. {total_fac_bs:,.2f}", ST["subtotal_lbl"])]]
-            t_sub = Table(sub_data, colWidths=[ancho_content * 0.3, ancho_content * 0.7])
+            sub_data = [[Paragraph("", ST["subtotal_lbl"]), Paragraph(f"Total:   Bs. {total_fac_bs:,.2f}", ST["subtotal_lbl"])]]
+            t_sub = Table(sub_data, colWidths=[ancho_content * 0.5, ancho_content * 0.5])
         else:
             sub_data = [[Paragraph("", ST["subtotal_lbl"]), Paragraph(f"Total:   {_fmt_usd(total_fac)}", ST["subtotal_lbl"])]]
             t_sub = Table(sub_data, colWidths=[ancho_content * 0.5, ancho_content * 0.5])

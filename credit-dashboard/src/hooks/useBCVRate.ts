@@ -6,14 +6,18 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001/api';
+// Endpoint Vercel serverless (relativo — funciona en producción automáticamente)
+const VERCEL_BCV_URL = '/api/bcv-rate';
 const DOLAR_API_URL = 'https://ve.dolarapi.com/v1/dolares';
 // API alternativa: devuelve VES por 1 USD directamente
 const EXCHANGERATE_API_URL = 'https://open.er-api.com/v6/latest/USD';
 
-// Refrescar cada 1 minuto
-const REFRESH_INTERVAL_MS = 1 * 60 * 1000;
-// Si la caché tiene más de 2 horas, ignorarla completamente
-const CACHE_MAX_AGE_MS = 2 * 60 * 60 * 1000;
+// Refrescar cada 5 minutos
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+// Mostrar aviso de stale si la caché tiene más de 10 minutos
+const STALE_THRESHOLD_MS  = 10 * 60 * 1000;
+// Si la caché tiene más de 4 horas, ignorarla completamente
+const CACHE_MAX_AGE_MS = 4 * 60 * 60 * 1000;
 const DEFAULT_BCV      = 100;
 const DEFAULT_PARALLEL = 120;
 
@@ -110,12 +114,30 @@ export function useBCVRate(): UseBCVRateReturn {
         if (data.oficial && data.oficial > 1) {
           oficial = data.oficial;
           paralelo = data.paralelo || null;
-          srcLabel = `BCV via servidor (${data.source})`;
+          srcLabel = `BCV via servidor local (${data.source})`;
           console.log(`[BCV] ✅ Tasa del servidor local: ${oficial} Bs/USD (${data.source})`);
         }
       }
     } catch {
-      console.warn('[BCV] Servidor local no disponible, probando DolarAPI...');
+      console.warn('[BCV] Servidor local no disponible, probando /api/bcv-rate...');
+    }
+
+    // 2. Intentar endpoint Vercel /api/bcv-rate (scraping BCV real)
+    if (!oficial) {
+      try {
+        const res = await fetch(VERCEL_BCV_URL, { signal: AbortSignal.timeout(10000) });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.oficial && data.oficial > 1) {
+            oficial = data.oficial;
+            paralelo = data.paralelo || null;
+            srcLabel = `BCV via Vercel (${data.source})`;
+            console.log(`[BCV] ✅ Tasa de /api/bcv-rate: ${oficial} Bs/USD (${data.source})`);
+          }
+        }
+      } catch {
+        console.warn('[BCV] /api/bcv-rate no disponible, probando DolarAPI...');
+      }
     }
 
     // 2. Fallback A: DolarAPI — verificar que los datos no sean viejos (>24h)
@@ -168,19 +190,31 @@ export function useBCVRate(): UseBCVRateReturn {
 
     if (oficial) {
       // Guardar en caché
+      const prevCached = localStorage.getItem('bcv_rate_usd');
       localStorage.setItem('bcv_rate_usd', oficial.toString());
       const hasManualOficial = localStorage.getItem('bcv_rate_manual_oficial');
 
       if (hasManualOficial) {
         const manualVal = parseFloat(hasManualOficial);
-        // Si la tasa manual está desviada más del 30% de la real → descartarla
+        // Si la tasa manual está desviada más del 15% de la real → descartarla
         const deviation = Math.abs(manualVal - oficial) / oficial;
-        if (deviation > 0.30) {
+        if (deviation > 0.15) {
           console.warn(`[BCV] Tasa manual (${manualVal}) difiere ${(deviation*100).toFixed(0)}% de la real (${oficial}). Reseteando a automático.`);
           localStorage.removeItem('bcv_rate_manual_oficial');
           setRate(oficial);
+        } else {
+          // La tasa manual es razonable — pero si la tasa real cambió >5% respecto al caché, actualizar igualmente
+          if (prevCached) {
+            const prevVal = parseFloat(prevCached);
+            const cacheDeviation = Math.abs(oficial - prevVal) / prevVal;
+            if (cacheDeviation > 0.05) {
+              console.info(`[BCV] Tasa real cambió ${(cacheDeviation*100).toFixed(1)}% — actualizando y descartando manual.`);
+              localStorage.removeItem('bcv_rate_manual_oficial');
+              setRate(oficial);
+            }
+          }
         }
-        // Si la tasa manual es razonable, respetarla
+        // Si la tasa manual es razonable y el mercado no cambió, respetarla
       } else {
         setRate(oficial);
       }
@@ -227,13 +261,13 @@ export function useBCVRate(): UseBCVRateReturn {
     // Intervalo de refresco cada 1 minuto
     const refreshInterval = setInterval(() => fetchRate(), REFRESH_INTERVAL_MS);
 
-    // Actualizar badge de "stale" cada 30 segundos
+    // Actualizar badge de "stale" cada 60 segundos (usando STALE_THRESHOLD_MS = 10 min)
     const staleInterval = setInterval(() => {
       const su = localStorage.getItem('bcv_rate_updated');
       const lu = su ? new Date(su) : null;
       const diff = lu ? Date.now() - lu.getTime() : Infinity;
-      setIsStale(diff > REFRESH_INTERVAL_MS);
-    }, 30_000);
+      setIsStale(diff > STALE_THRESHOLD_MS);
+    }, 60_000);
 
     return () => {
       clearInterval(refreshInterval);

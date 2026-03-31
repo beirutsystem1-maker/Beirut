@@ -1,13 +1,17 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/bcv-rate.js": { "maxDuration": 15 },
+    "api/pdf.js":      { "maxDuration": 30 }
+  },
   "rewrites": [
     {
       "source": "/assets/(.*)",
       "destination": "/assets/$1"
     },
     {
-      "source": "/((?!assets|favicon|sw\\.js|manifest).*)",
+      "source": "/((?!api|assets|favicon|sw\\.js|manifest).*)",
       "destination": "/index.html"
     }
   ],

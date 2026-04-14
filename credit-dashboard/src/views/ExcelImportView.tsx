@@ -1,15 +1,14 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-// Importación dinámica para reducir bundle size
-// import * as XLSX from 'xlsx';
 import {
     UploadCloud, X, Package, ChevronDown, ChevronUp,
     Plus, RefreshCw, Sparkles, FileText, Hash,
-    Calendar, DollarSign, Layers, ShoppingCart, Trash2
+    Calendar, DollarSign, Layers, ShoppingCart, Trash2, Key, Eye, EyeOff, CheckCircle2
 } from 'lucide-react';
 import { AssignCreditModal } from '../components/AssignCreditModal';
 import { useBCV } from '../hooks/BCVContext';
-// PDF is processed via Vercel Serverless Function at /api/pdf
-const PDF_API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/pdf/extract` : '/api/pdf';
+import { extractInvoiceFromPDF } from '../logic/geminiOCR';
+
+const GEMINI_KEY_STORAGE = 'beirut_gemini_api_key';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface ProductRow {
@@ -233,6 +232,29 @@ export function ExcelImportView() {
     const [invoiceToAssign, setInvoiceToAssign] = useState<InvoiceRow | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // ── Gemini API Key ────────────────────────────────────────────────────────
+    const [geminiKey, setGeminiKey] = useState<string>(() => localStorage.getItem(GEMINI_KEY_STORAGE) || '');
+    const [showKeyInput, setShowKeyInput] = useState(false);
+    const [keyInputVal, setKeyInputVal] = useState('');
+    const [showKeyText, setShowKeyText] = useState(false);
+    const [keySaved, setKeySaved] = useState(false);
+
+    const saveGeminiKey = () => {
+        const trimmed = keyInputVal.trim();
+        if (!trimmed) return;
+        localStorage.setItem(GEMINI_KEY_STORAGE, trimmed);
+        setGeminiKey(trimmed);
+        setKeyInputVal('');
+        setShowKeyInput(false);
+        setKeySaved(true);
+        setTimeout(() => setKeySaved(false), 3000);
+    };
+
+    const clearGeminiKey = () => {
+        localStorage.removeItem(GEMINI_KEY_STORAGE);
+        setGeminiKey('');
+    };
+
     const handleExpandCard = (idx: number) => {
         if (expandedIdx === idx) {
             setExpandedIdx(null);
@@ -269,22 +291,18 @@ export function ExcelImportView() {
         };
 
         if (file.name.toLowerCase().endsWith('.pdf')) {
+            // ── Client-side Gemini OCR ─────────────────────────────────────
+            const keyToUse = geminiKey;
+            if (!keyToUse) {
+                setShowKeyInput(true);
+                setError('Necesitas configurar tu API Key de Gemini para procesar PDFs. Ingresa tu clave abajo.');
+                return;
+            }
+
             setLoading(true);
             const rateToUse = parallelRate || 1;
 
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('exchangeRate', String(rateToUse));
-
-            fetch(PDF_API_URL, {
-                method: 'POST',
-                body: formData,
-            })
-                .then(async res => {
-                    const json = await res.json();
-                    if (!res.ok) throw new Error(json.error || 'Error procesando PDF');
-                    return json.data;
-                })
+            extractInvoiceFromPDF(file, rateToUse, keyToUse)
                 .then(d => {
                     const cleanProducts = (d.products || []).filter((p: ProductRow) => {
                         const nombre = (p.nombre || '').toUpperCase();
@@ -293,7 +311,7 @@ export function ExcelImportView() {
                         return true;
                     }).map((p: ProductRow) => ({
                         ...p,
-                        precio: round2(p.precio * 1.16) // Aplica IVA 16% directo al precio unitario
+                        precio: round2(p.precio * 1.16)
                     }));
 
                     processResult([{
@@ -450,9 +468,67 @@ export function ExcelImportView() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-6">
+                    {/* Gemini API Key badge */}
+                    <div className="flex items-center gap-2">
+                        {keySaved && (
+                            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-bold rounded-full">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Clave guardada
+                            </span>
+                        )}
+                        {geminiKey ? (
+                            <button
+                                onClick={() => setShowKeyInput(v => !v)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold rounded-full hover:bg-emerald-500/20 transition-all"
+                                title="Cambiar API Key"
+                            >
+                                <Key className="w-3 h-3" />
+                                API Key ✓
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => setShowKeyInput(v => !v)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold rounded-full hover:bg-amber-500/20 transition-all animate-pulse"
+                            >
+                                <Key className="w-3 h-3" />
+                                Configurar API Key
+                            </button>
+                        )}
                     </div>
                 </div>
+
+                {/* Key input panel */}
+                {showKeyInput && (
+                    <div className="p-4 bg-card border border-[#635BFF]/30 rounded-2xl space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-bold text-[#635BFF]">
+                            <Key className="w-4 h-4" />
+                            API Key de Google Gemini
+                        </div>
+                        <p className="text-xs text-muted-foreground">Obtén tu clave gratis en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-[#635BFF] underline">aistudio.google.com/apikey</a>. Se guarda solo en tu navegador, nunca en el servidor.</p>
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <input
+                                    type={showKeyText ? 'text' : 'password'}
+                                    value={keyInputVal}
+                                    onChange={e => setKeyInputVal(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && saveGeminiKey()}
+                                    placeholder="AIzaSy..."
+                                    className="w-full px-4 py-2.5 pr-10 rounded-xl border border-border bg-background text-sm font-mono focus:outline-none focus:border-[#635BFF]/60 focus:ring-2 focus:ring-[#635BFF]/20"
+                                />
+                                <button onClick={() => setShowKeyText(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                                    {showKeyText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            <button onClick={saveGeminiKey} disabled={!keyInputVal.trim()} className="px-4 py-2.5 bg-[#635BFF] text-white text-sm font-bold rounded-xl hover:bg-[#524ae3] disabled:opacity-40 transition-all">
+                                Guardar
+                            </button>
+                            {geminiKey && (
+                                <button onClick={clearGeminiKey} className="px-3 py-2.5 bg-rose-500/10 text-rose-500 text-sm font-bold rounded-xl hover:bg-rose-500/20 transition-all">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {error && (
                     <div className="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-500 rounded-2xl text-sm font-medium flex items-center gap-2">

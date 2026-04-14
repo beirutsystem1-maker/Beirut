@@ -7,8 +7,21 @@
  * POST https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={apiKey}
  */
 
-const GEMINI_MODEL = 'gemini-1.5-flash-latest';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_MODEL = 'gemini-2.0-flash-lite';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+const GEMINI_ENDPOINT = `${GEMINI_BASE}/models/${GEMINI_MODEL}:generateContent`;
+
+/**
+ * Lista los modelos disponibles para la API key dada (diagnóstico).
+ * Llama en consola del navegador: import('/src/logic/geminiOCR.ts').then(m => m.listAvailableModels('TU_KEY'))
+ */
+export async function listAvailableModels(apiKey: string): Promise<string[]> {
+  const res = await fetch(`${GEMINI_BASE}/models?key=${apiKey}`);
+  const data = await res.json();
+  const names = (data.models || []).map((m: any) => m.name);
+  console.log('[Gemini] Modelos disponibles:', names);
+  return names;
+}
 
 // ─── Tipo de respuesta ────────────────────────────────────────────────────────
 export interface OCRResult {

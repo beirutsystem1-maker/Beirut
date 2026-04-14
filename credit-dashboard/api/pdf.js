@@ -8,7 +8,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 
-const MODEL_NAME = 'gemini-2.0-flash';
+const MODEL_NAME = 'gemini-2.5-flash';
 
 function buildPrompt(tasa) {
     return `Eres un sistema OCR especializado en documentos comerciales venezolanos (facturas, notas de entrega, remisiones, notas de crédito, etc.).

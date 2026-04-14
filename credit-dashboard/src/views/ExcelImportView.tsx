@@ -6,8 +6,8 @@ import {
 } from 'lucide-react';
 import { AssignCreditModal } from '../components/AssignCreditModal';
 import { useBCV } from '../hooks/BCVContext';
-import { extractInvoiceFromPDF } from '../logic/geminiOCR';
 
+const PDF_API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/pdf/extract` : '/api/pdf';
 const GEMINI_KEY_STORAGE = 'beirut_gemini_api_key';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -291,7 +291,7 @@ export function ExcelImportView() {
         };
 
         if (file.name.toLowerCase().endsWith('.pdf')) {
-            // ── Client-side Gemini OCR ─────────────────────────────────────
+            // ── Server-side OCR Proxy (Bypass Geo-block) ───────────────────
             const keyToUse = geminiKey;
             if (!keyToUse) {
                 setShowKeyInput(true);
@@ -302,7 +302,20 @@ export function ExcelImportView() {
             setLoading(true);
             const rateToUse = parallelRate || 1;
 
-            extractInvoiceFromPDF(file, rateToUse, keyToUse)
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('exchangeRate', String(rateToUse));
+            formData.append('userApiKey', keyToUse);
+
+            fetch(PDF_API_URL, {
+                method: 'POST',
+                body: formData,
+            })
+                .then(async res => {
+                    const json = await res.json();
+                    if (!res.ok) throw new Error(json.error || 'Error procesando PDF. Verifica tu clave.');
+                    return json.data;
+                })
                 .then(d => {
                     const cleanProducts = (d.products || []).filter((p: ProductRow) => {
                         const nombre = (p.nombre || '').toUpperCase();

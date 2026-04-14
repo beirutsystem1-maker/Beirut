@@ -240,16 +240,20 @@ export function ExcelImportView() {
     const [keySaved, setKeySaved] = useState(false);
 
     const saveGeminiKey = () => {
-        let trimmed = keyInputVal.trim().replace(/['"]/g, ''); // Quitamos espacios y comillas accidentales
-        if (!trimmed) return;
+        let raw = keyInputVal.trim().replace(/['"]/g, ''); // Quitamos espacios y comillas accidentales
+        if (!raw) return;
         
-        if (!trimmed.startsWith('AIza')) {
-            setError('La API Key parece ser inválida. Debe empezar con "AIza".');
+        // Extraemos exactamente el formato de clave de Google (AIza seguido de 35 caracteres alfanuméricos/guiones)
+        const match = raw.match(/AIza[a-zA-Z0-9_-]{35}/);
+        if (!match) {
+            setError('La API Key parece ser inválida. Asegúrate de copiar solo los 39 caracteres que empiezan por "AIza".');
             return;
         }
 
-        localStorage.setItem(GEMINI_KEY_STORAGE, trimmed);
-        setGeminiKey(trimmed);
+        const cleanKey = match[0];
+
+        localStorage.setItem(GEMINI_KEY_STORAGE, cleanKey);
+        setGeminiKey(cleanKey);
         setKeyInputVal('');
         setShowKeyInput(false);
         setKeySaved(true);

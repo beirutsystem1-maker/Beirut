@@ -240,13 +240,20 @@ export function ExcelImportView() {
     const [keySaved, setKeySaved] = useState(false);
 
     const saveGeminiKey = () => {
-        const trimmed = keyInputVal.trim();
+        let trimmed = keyInputVal.trim().replace(/['"]/g, ''); // Quitamos espacios y comillas accidentales
         if (!trimmed) return;
+        
+        if (!trimmed.startsWith('AIza')) {
+            setError('La API Key parece ser inválida. Debe empezar con "AIza".');
+            return;
+        }
+
         localStorage.setItem(GEMINI_KEY_STORAGE, trimmed);
         setGeminiKey(trimmed);
         setKeyInputVal('');
         setShowKeyInput(false);
         setKeySaved(true);
+        setError(''); // Limpiar errores pasados
         setTimeout(() => setKeySaved(false), 3000);
     };
 

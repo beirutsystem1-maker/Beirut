@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 
 // ── Multer ────────────────────────────────────────────────────────────────────
 const upload = multer({
@@ -14,8 +14,7 @@ const upload = multer({
 });
 
 // ── Gemini client ─────────────────────────────────────────────────────────────
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const MODEL_NAME = 'gemini-1.5-flash-latest';
+const MODEL_NAME = 'gemini-2.0-flash';
 
 // ── Prompt robusto ────────────────────────────────────────────────────────────
 function buildPrompt(tasa) {
@@ -113,21 +112,23 @@ router.post('/extract', upload.single('file'), async (req, res) => {
             return res.status(500).json({ error: 'No se encontró API Key de Gemini (ni personal ni global).' });
         }
 
-        const currentGenAI = new GoogleGenerativeAI(apiKeyToUse, { apiVersion: 'v1' });
+        const ai = new GoogleGenAI({ apiKey: apiKeyToUse });
         const pdfBase64 = req.file.buffer.toString('base64');
-        const model = currentGenAI.getGenerativeModel({ model: MODEL_NAME });
 
-        const result = await model.generateContent([
-            {
-                inlineData: {
-                    data: pdfBase64,
-                    mimeType: 'application/pdf'
+        const result = await ai.models.generateContent({
+            model: MODEL_NAME,
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        { inlineData: { data: pdfBase64, mimeType: 'application/pdf' } },
+                        { text: buildPrompt(exchangeRate) }
+                    ]
                 }
-            },
-            buildPrompt(exchangeRate)
-        ]);
+            ]
+        });
 
-        const rawText = result.response.text().trim();
+        const rawText = result.text.trim();
         console.log('[OCR] Respuesta Gemini (preview):', rawText.substring(0, 400));
 
         // Limpiar y parsear JSON

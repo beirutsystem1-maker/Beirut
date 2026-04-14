@@ -6,9 +6,9 @@
  * Parses a PDF invoice using Google Gemini Vision AI and returns structured JSON.
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
-const MODEL_NAME = 'gemini-1.5-flash-latest';
+const MODEL_NAME = 'gemini-2.0-flash';
 
 function buildPrompt(tasa) {
     return `Eres un sistema OCR especializado en documentos comerciales venezolanos (facturas, notas de entrega, remisiones, notas de crédito, etc.).
@@ -156,16 +156,23 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'No se encontró API Key de Gemini. Configura GEMINI_API_KEY en Vercel.' });
         }
 
-        const genAI = new GoogleGenerativeAI(apiKey, { apiVersion: 'v1' });
+        const ai = new GoogleGenAI({ apiKey });
         const pdfBase64 = filePart.data.toString('base64');
-        const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
-        const result = await model.generateContent([
-            { inlineData: { data: pdfBase64, mimeType: 'application/pdf' } },
-            buildPrompt(exchangeRate)
-        ]);
+        const result = await ai.models.generateContent({
+            model: MODEL_NAME,
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        { inlineData: { data: pdfBase64, mimeType: 'application/pdf' } },
+                        { text: buildPrompt(exchangeRate) }
+                    ]
+                }
+            ]
+        });
 
-        const rawText = result.response.text().trim();
+        const rawText = result.text.trim();
 
         let geminiData;
         try {

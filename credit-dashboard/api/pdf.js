@@ -8,7 +8,7 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const MODEL_NAME = 'gemini-1.5-flash';
+const MODEL_NAME = 'gemini-1.5-flash-latest';
 
 function buildPrompt(tasa) {
     return `Eres un sistema OCR especializado en documentos comerciales venezolanos (facturas, notas de entrega, remisiones, notas de crédito, etc.).
@@ -156,7 +156,7 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'No se encontró API Key de Gemini. Configura GEMINI_API_KEY en Vercel.' });
         }
 
-        const genAI = new GoogleGenerativeAI(apiKey);
+        const genAI = new GoogleGenerativeAI(apiKey, { apiVersion: 'v1' });
         const pdfBase64 = filePart.data.toString('base64');
         const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 

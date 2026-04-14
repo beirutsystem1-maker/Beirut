@@ -15,7 +15,7 @@ const upload = multer({
 
 // ── Gemini client ─────────────────────────────────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const MODEL_NAME = 'gemini-1.5-flash';
+const MODEL_NAME = 'gemini-1.5-flash-latest';
 
 // ── Prompt robusto ────────────────────────────────────────────────────────────
 function buildPrompt(tasa) {
@@ -113,7 +113,7 @@ router.post('/extract', upload.single('file'), async (req, res) => {
             return res.status(500).json({ error: 'No se encontró API Key de Gemini (ni personal ni global).' });
         }
 
-        const currentGenAI = new GoogleGenerativeAI(apiKeyToUse);
+        const currentGenAI = new GoogleGenerativeAI(apiKeyToUse, { apiVersion: 'v1' });
         const pdfBase64 = req.file.buffer.toString('base64');
         const model = currentGenAI.getGenerativeModel({ model: MODEL_NAME });
 

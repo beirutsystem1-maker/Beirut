@@ -7,8 +7,8 @@
  * POST https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={apiKey}
  */
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_MODEL = 'gemini-1.5-flash';
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 // ─── Tipo de respuesta ────────────────────────────────────────────────────────
 export interface OCRResult {

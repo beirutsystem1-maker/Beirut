@@ -6,9 +6,8 @@
  * Parses a PDF invoice using Google Gemini Vision AI and returns structured JSON.
  */
 
-import { GoogleGenAI } from '@google/genai';
-
-const MODEL_NAME = 'gemini-2.5-flash';
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const GOOGLE_NATIVE_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 function buildPrompt(tasa) {
     return `Eres un sistema OCR especializado en documentos comerciales venezolanos (facturas, notas de entrega, remisiones, notas de crédito, etc.).
@@ -156,23 +155,71 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: 'No se encontró API Key de Gemini. Configura GEMINI_API_KEY en Vercel.' });
         }
 
-        const ai = new GoogleGenAI({ apiKey });
         const pdfBase64 = filePart.data.toString('base64');
+        let rawText = '';
 
-        const result = await ai.models.generateContent({
-            model: MODEL_NAME,
-            contents: [
-                {
-                    role: 'user',
-                    parts: [
-                        { inlineData: { data: pdfBase64, mimeType: 'application/pdf' } },
-                        { text: buildPrompt(exchangeRate) }
-                    ]
-                }
-            ]
-        });
+        if (apiKey.startsWith('sk-or-v1-')) {
+            // OpenRouter Request
+            const body = {
+                model: 'google/gemini-2.5-flash',
+                messages: [
+                    {
+                        role: "user",
+                        content: [
+                            { type: "text", text: buildPrompt(exchangeRate) },
+                            { type: "image_url", image_url: { url: `data:application/pdf;base64,${pdfBase64}` } }
+                        ]
+                    }
+                ],
+                temperature: 0.1
+            };
 
-        const rawText = result.text.trim();
+            const response = await fetch(OPENROUTER_URL, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'HTTP-Referer': 'https://beirut-dashboard.vercel.app',
+                    'X-Title': 'Beirut OCR',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(`OpenRouter API error: ${data.error?.message || response.statusText}`);
+            }
+            rawText = data?.choices?.[0]?.message?.content || '';
+
+        } else {
+            // Google Native Request
+            const body = {
+                contents: [
+                    {
+                        role: 'user',
+                        parts: [
+                            { inline_data: { mime_type: 'application/pdf', data: pdfBase64 } },
+                            { text: buildPrompt(exchangeRate) }
+                        ]
+                    }
+                ],
+                generationConfig: { temperature: 0.1 }
+            };
+
+            const response = await fetch(`${GOOGLE_NATIVE_URL}?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await response.json();
+             if (!response.ok) {
+                throw new Error(`Google API error: ${data.error?.message || response.statusText}`);
+            }
+            rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        }
+
+        if (!rawText) throw new Error('La API devolvió una respuesta vacía.');
 
         let geminiData;
         try {

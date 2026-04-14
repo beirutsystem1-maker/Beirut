@@ -243,10 +243,10 @@ export function ExcelImportView() {
         let raw = keyInputVal.trim().replace(/['"]/g, ''); // Quitamos espacios y comillas accidentales
         if (!raw) return;
         
-        // Extraemos exactamente el formato de clave de Google (AIza seguido de 35 caracteres alfanuméricos/guiones)
-        const match = raw.match(/AIza[a-zA-Z0-9_-]{35}/);
+        // Extraemos formato de Google (AIza...) o Formato de OpenRouter (sk-or-v1-...)
+        const match = raw.match(/(AIza[a-zA-Z0-9_-]{35})|(sk-or-v1-[a-zA-Z0-9_-]{60,100})/);
         if (!match) {
-            setError('La API Key parece ser inválida. Asegúrate de copiar solo los 39 caracteres que empiezan por "AIza".');
+            setError('La API Key debe empezar con "sk-or-v1-" (OpenRouter) o "AIza" (Google).');
             return;
         }
 
@@ -306,7 +306,7 @@ export function ExcelImportView() {
             const keyToUse = geminiKey;
             if (!keyToUse) {
                 setShowKeyInput(true);
-                setError('Necesitas configurar tu API Key de Gemini para procesar PDFs. Ingresa tu clave abajo.');
+                setError('Necesitas configurar tu API Key de OpenRouter o Gemini para procesar PDFs.');
                 return;
             }
 

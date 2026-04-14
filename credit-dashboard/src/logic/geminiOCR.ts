@@ -7,7 +7,7 @@
  * POST https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={apiKey}
  */
 
-const GEMINI_MODEL = 'gemini-2.0-flash-lite';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const GEMINI_ENDPOINT = `${GEMINI_BASE}/models/${GEMINI_MODEL}:generateContent`;
 

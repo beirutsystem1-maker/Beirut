@@ -243,17 +243,14 @@ export function ExcelImportView() {
         let raw = keyInputVal.trim().replace(/['"]/g, ''); // Quitamos espacios y comillas accidentales
         if (!raw) return;
         
-        // Extraemos formato de Google (AIza...) o Formato de OpenRouter (sk-or-v1-...)
-        const match = raw.match(/(AIza[a-zA-Z0-9_-]{35})|(sk-or-v1-[a-zA-Z0-9_-]{60,100})/);
-        if (!match) {
+        // Validamos de forma más flexible
+        if (!raw.startsWith('AIza') && !raw.startsWith('sk-or-v1-')) {
             setError('La API Key debe empezar con "sk-or-v1-" (OpenRouter) o "AIza" (Google).');
             return;
         }
 
-        const cleanKey = match[0];
-
-        localStorage.setItem(GEMINI_KEY_STORAGE, cleanKey);
-        setGeminiKey(cleanKey);
+        localStorage.setItem(GEMINI_KEY_STORAGE, raw);
+        setGeminiKey(raw);
         setKeyInputVal('');
         setShowKeyInput(false);
         setKeySaved(true);

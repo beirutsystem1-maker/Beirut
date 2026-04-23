@@ -296,6 +296,9 @@ export function useAddClient() {
                 return await res.json();
             }
         },
+        onError: (err: any) => {
+            alert(`Error al guardar cliente: ${err.message || 'Verifique si el RIF/Cédula ya existe o intente nuevamente'}`);
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['clients'] });
         },

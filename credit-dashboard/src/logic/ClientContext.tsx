@@ -25,7 +25,7 @@ interface ClientContextType {
 const ClientContext = createContext<ClientContextType | undefined>(undefined);
 
 export function ClientProvider({ children }: { children: ReactNode }) {
-    const { data, isLoading, refetch } = useClientsQuery(0, 50);
+    const { data, isLoading, refetch } = useClientsQuery(0, 500);
 
     const clients = data?.data || [];
 

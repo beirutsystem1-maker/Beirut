@@ -97,7 +97,7 @@ export interface PaginatedResponse<T> {
     hasMore: boolean;
 }
 
-const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 500;
 
 /** Fetch all clients and do pagination locally since local sqlite is very fast */
 export function useClients(page = 0, pageSize = DEFAULT_PAGE_SIZE) {
@@ -363,7 +363,7 @@ export function useUpdateClient() {
         onSuccess: (_data, variables) => {
             console.log('Update successful, invalidating queries...');
             // Optimistic manual update of the cache to instantly show the changes
-            queryClient.setQueryData(['clients', 0, 50], (oldData: any) => {
+            queryClient.setQueryData(['clients', 0, 500], (oldData: any) => {
                 if (!oldData || !oldData.data) return oldData;
                 return {
                     ...oldData,

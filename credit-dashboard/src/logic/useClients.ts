@@ -397,17 +397,26 @@ export function useAppendExcelInvoice() {
             dueDate: string;
             totalAmount: number;
             iva?: number;
-            products?: { description?: string; quantity?: number; unit_price?: number; nombre?: string; precio?: number; unitPrice?: number; cantidad?: number }[];
+            products?: { description?: string; quantity?: number; unit_price?: number; nombre?: string; precio?: number; unitPrice?: number; cantidad?: number; subtotal?: number; isSubtotalManual?: boolean; }[];
         }) => {
             const { clientId, docNumber, issueDate, dueDate, totalAmount, iva = 0, products } = payload;
             const status = isOverdue(dueDate) ? 'en mora' : 'pendiente';
 
             const formattedProducts = (products && products.length > 0)
-                ? products.map(p => ({
-                    description: p.nombre || p.description || 'Producto sin nombre',
-                    quantity: p.cantidad || p.quantity || 1,
-                    unit_price: p.precio || p.unitPrice || 0
-                }))
+                ? products.map(p => {
+                    const qty = p.cantidad !== undefined ? p.cantidad : (p.quantity !== undefined ? p.quantity : 1);
+                    let up = p.precio !== undefined ? p.precio : (p.unit_price !== undefined ? p.unit_price : (p.unitPrice !== undefined ? p.unitPrice : 0));
+                    
+                    if (p.isSubtotalManual && p.subtotal !== undefined && qty > 0) {
+                        up = p.subtotal / qty;
+                    }
+                    
+                    return {
+                        description: p.nombre || p.description || 'Producto sin nombre',
+                        quantity: qty,
+                        unit_price: up
+                    };
+                })
                 : [{ description: 'Deuda Asignada', quantity: 1, unit_price: totalAmount - iva }];
 
             const fallbackTotal = totalAmount || 0;

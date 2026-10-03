@@ -13,7 +13,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
     const { settings } = useSettings();
 
     // Shared generic security code for the app
-    const SECURITY_CODE = 'AdminHr';
+    const SECURITY_CODE = '24716418tj';
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();

@@ -574,10 +574,11 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                         total_con_recargo: totalConRecargo
                     };
                 }),
-                abonos: relevantPayments.map((p) => ({
+                abonos: relevantPayments.map((p: any) => ({
                     fecha: (p.createdAt || p.payment_date || '').split('T')[0],
                     monto_usd: p.amountUsd || p.amount || 0,
                     metodo: p.paymentMethod || p.method || 'Pago',
+                    tasa: Number(p.metadata?.exchange_rate || p.exchange_rate) || 0,
                     invoice_id: p.invoiceId || p.invoice_id || ''
                 })),
                 meta: {

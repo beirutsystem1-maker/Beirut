@@ -1529,9 +1529,30 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                                             <span className="text-[9px] text-muted-foreground/70">{tx.paymentMethod}</span>
                                                         )}
                                                     </div>
-                                                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono ml-2 shrink-0">
-                                                        {showBaseDebt ? formatCurrency(tx.amountUsd) : '****'}
-                                                    </span>
+                                                    <div className="flex items-baseline gap-1.5 ml-2 shrink-0 font-mono">
+                                                        {(() => {
+                                                            const isBs = tx.paymentMethod && (tx.paymentMethod.toLowerCase().includes('bol') || tx.paymentMethod.toLowerCase().includes('bdv') || tx.paymentMethod.toLowerCase().includes('bs'));
+                                                            const rate = Number(tx.metadata?.exchange_rate) || 0;
+                                                            if (isBs && rate > 0) {
+                                                                const amountBs = tx.amountUsd * rate;
+                                                                return (
+                                                                    <>
+                                                                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                                                            {showBaseDebt ? `Bs. ${amountBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '****'}
+                                                                        </span>
+                                                                        <span className="text-[11px] font-bold text-muted-foreground/80">
+                                                                            {showBaseDebt ? `(${formatCurrency(tx.amountUsd)})` : '(****)'}
+                                                                        </span>
+                                                                    </>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                                                    {showBaseDebt ? formatCurrency(tx.amountUsd) : '****'}
+                                                                </span>
+                                                            );
+                                                        })()}
+                                                    </div>
                                                 </div>
                                             );
                                         })}

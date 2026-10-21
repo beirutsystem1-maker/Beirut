@@ -431,10 +431,15 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict, abonos: list
             fecha_ab = _fmt_fecha(abono.get("fecha", ""))
             monto_usd = float(abono.get("monto_usd", 0))
             metodo = abono.get("metodo", "Pago")
+            tasa_abono = float(abono.get("tasa", 0))
             total_abonado += monto_usd
 
-            if es_bcv and tasa_dia:
-                monto_txt = f"Bs. {monto_usd * tasa_dia:,.2f}"
+            es_pago_bs = any(k in metodo.lower() for k in ["bol", "bdv", "bs"])
+            if es_pago_bs and tasa_abono > 0:
+                monto_bs = monto_usd * tasa_abono
+                monto_txt = f"Bs. {monto_bs:,.2f}  (${monto_usd:,.2f})"
+            elif es_bcv and tasa_dia:
+                monto_txt = f"Bs. {monto_usd * tasa_dia:,.2f}  (${monto_usd:,.2f})"
             else:
                 monto_txt = _fmt_usd(monto_usd)
 

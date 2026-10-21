@@ -78,7 +78,7 @@ def _hr_grueso(doc) -> HRFlowable:
 def _hr_fino(doc) -> HRFlowable:
     return HRFlowable(width="100%", thickness=0.3, color=GRIS_CLAR, spaceAfter=3 * mm, spaceBefore=3 * mm)
 
-def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
+def generar_nota_cliente(cliente: dict, facturas: list, meta: dict, abonos: list = None) -> bytes:
     ESTADOS_ACTIVOS = {"activa", "pendiente", "mora", "en mora", "active", "vencida"}
     facturas_activas = [
         f for f in facturas
@@ -190,6 +190,50 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict) -> bytes:
         if idx < len(facturas_activas) - 1:
             story.append(HRFlowable(width="100%", thickness=0.3, color=GRIS_CLAR, spaceBefore=4 * mm, spaceAfter=4 * mm))
 
+    # ABONOS REGISTRADOS
+    if abonos:
+        story.append(Spacer(1, 2 * mm))
+        story.append(HRFlowable(width="100%", thickness=0.3, color=GRIS_CLAR, spaceBefore=3 * mm, spaceAfter=3 * mm))
+        story.append(Paragraph("ABONOS REGISTRADOS", ParagraphStyle("abonos_titulo", fontName=FONT_BOLD, fontSize=FS_ITEM, textColor=GRIS_OSC, alignment=TA_LEFT, spaceAfter=2 * mm)))
+
+        total_abonado = 0.0
+        for abono in abonos:
+            fecha_ab = _fmt_fecha(abono.get("fecha", ""))
+            monto_usd = float(abono.get("monto_usd", 0))
+            metodo = abono.get("metodo", "Pago")
+            total_abonado += monto_usd
+
+            if es_bcv and tasa_dia:
+                monto_txt = f"Bs. {monto_usd * float(tasa_dia):,.2f}"
+            else:
+                monto_txt = _fmt_usd(monto_usd)
+
+            ab_data = [[
+                Paragraph(f"{fecha_ab}  ·  {metodo}", ParagraphStyle("ab_desc", fontName=FONT, fontSize=FS_ITEM, textColor=NEGRO, alignment=TA_LEFT)),
+                Paragraph(monto_txt, ParagraphStyle("ab_monto", fontName=FONT_BOLD, fontSize=FS_ITEM, textColor=GRIS_OSC, alignment=TA_RIGHT))
+            ]]
+            t_ab = Table(ab_data, colWidths=[ancho_content * 0.65, ancho_content * 0.35])
+            t_ab.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+            ]))
+            story.append(t_ab)
+
+        story.append(Spacer(1, 1 * mm))
+        total_ab_txt = f"Bs. {total_abonado * float(tasa_dia):,.2f}" if (es_bcv and tasa_dia) else _fmt_usd(total_abonado)
+        tot_ab_data = [[
+            Paragraph("Total Abonado:", ParagraphStyle("tot_ab_lbl", fontName=FONT_BOLD, fontSize=FS_ITEM, textColor=GRIS_OSC, alignment=TA_RIGHT)),
+            Paragraph(total_ab_txt, ParagraphStyle("tot_ab_val", fontName=FONT_BOLD, fontSize=FS_ITEM, textColor=GRIS_OSC, alignment=TA_RIGHT))
+        ]]
+        t_tot_ab = Table(tot_ab_data, colWidths=[ancho_content * 0.65, ancho_content * 0.35])
+        t_tot_ab.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        story.append(t_tot_ab)
+
     # TOTAL FINAL
     total_general = sum(float(f.get("total_con_recargo", 0)) for f in facturas_activas)
 
@@ -257,8 +301,9 @@ class handler(BaseHTTPRequestHandler):
             cliente_dict = data.get('cliente', {})
             facturas_list = data.get('facturas', [])
             meta_dict = data.get('meta', {})
+            abonos_list = data.get('abonos', [])
             
-            pdf_bytes = generar_nota_cliente(cliente_dict, facturas_list, meta_dict)
+            pdf_bytes = generar_nota_cliente(cliente_dict, facturas_list, meta_dict, abonos_list)
             
             self.send_response(200)
             self.send_header('Access-Control-Allow-Origin', '*')

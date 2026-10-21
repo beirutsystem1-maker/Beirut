@@ -1,3 +1,4 @@
+import { supabase } from '../lib/supabase';
 import React, { useState, useMemo } from 'react';
 import {
     MessageCircle, FileText, ChevronRight,
@@ -468,15 +469,33 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
             return;
         }
 
-        // Fetch payments for this client
+        // Fetch payments for this client (Supabase direct fallback)
         let allPayments: any[] = [];
         try {
-            const res = await fetch(`${SERVER_URL}/clients/${client.id}/transactions`);
-            if (res.ok) {
-                allPayments = await res.json();
+            if (supabase) {
+                const { data: payData, error: payErr } = await supabase
+                    .from('payments')
+                    .select('id, invoice_id, amount, method, exchange_rate, surcharge_pct, payment_date')
+                    .eq('client_id', client.id)
+                    .order('payment_date', { ascending: false });
+                if (!payErr && payData) {
+                    allPayments = payData.map((p: any) => ({
+                        id: p.id,
+                        invoiceId: p.invoice_id,
+                        amountUsd: Number(p.amount),
+                        paymentMethod: p.method || 'Pago',
+                        createdAt: p.payment_date,
+                    }));
+                }
+            }
+            if (allPayments.length === 0) {
+                const res = await fetch(`${SERVER_URL}/clients/${client.id}/transactions`);
+                if (res.ok) {
+                    allPayments = await res.json();
+                }
             }
         } catch (e) {
-            console.error("Error fetching payments for WA", e);
+            console.error("Error fetching payments for WA/PDF", e);
         }
 
         const activeInvoiceIds = new Set(activeInvoices.map(inv => inv.id));

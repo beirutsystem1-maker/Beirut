@@ -555,6 +555,12 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                         total_con_recargo: totalConRecargo
                     };
                 }),
+                abonos: relevantPayments.map((p) => ({
+                    fecha: (p.createdAt || p.payment_date || '').split('T')[0],
+                    monto_usd: p.amountUsd || p.amount || 0,
+                    metodo: p.paymentMethod || p.method || 'Pago',
+                    invoice_id: p.invoiceId || p.invoice_id || ''
+                })),
                 meta: {
                     empresa: 'BEIRUT',
                     fecha_emision: new Date().toISOString().split('T')[0],

@@ -2,7 +2,7 @@ import {
     X, FileText, AlertCircle, Eye, CheckCircle2,
     Loader2, RefreshCw, ChevronDown, ChevronUp, Lock, Unlock, EyeOff, Edit2, Save, Trash2, DollarSign, CheckCircle, Plus
 } from 'lucide-react';
-import { useUpdateInvoiceProducts, useDeleteInvoice, useUpdateInvoiceDueDate, useDeleteClient } from '../logic/useClients';
+import { useUpdateInvoiceProducts, useDeleteInvoice, useUpdateInvoiceDueDate, useDeleteClient, useClientTransactions } from '../logic/useClients';
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { Client, Invoice } from '../logic/ClientContext';
@@ -1016,6 +1016,10 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
     const [showPaymentModal, setShowPaymentModal] = useState(false);
         const { registerPaymentOnInvoice, updateClient } = useClients();
     const [isEditing, setIsEditing] = useState(false);
+
+    // ── Cargar abonos del cliente ──────────────────────────────────────────
+    const { data: clientTransactions = [] } = useClientTransactions(client?.id ?? null);
+
     const [editData, setEditData] = useState({
         name: client?.name || '',
         rif: client?.rif || '',
@@ -1488,6 +1492,59 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                 <p className="text-xs text-muted-foreground mt-1 max-w-[220px] mx-auto">Este cliente no tiene notas de entrega pendientes.</p>
                             </div>
                         ) : null}
+
+                        {/* ── Abonos del cliente (facturas no archivadas) ── */}
+                        {(() => {
+                            const activeInvIds = new Set(
+                                invoicesWithOverrides
+                                    .filter((inv: Invoice) => inv.balance > 0)
+                                    .map((inv: Invoice) => inv.id)
+                            );
+                            const abonosActivos = clientTransactions.filter(
+                                (tx: any) => tx.type === 'payment' && activeInvIds.has(tx.invoiceId)
+                            );
+                            if (abonosActivos.length === 0) return null;
+                            const totalAbonado = abonosActivos.reduce((s: number, t: any) => s + t.amountUsd, 0);
+                            return (
+                                <div className="mt-3 pt-3 border-t border-border/40">
+                                    <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                        Abonos Registrados
+                                    </h4>
+                                    <div className="space-y-1.5">
+                                        {abonosActivos.map((tx: any) => {
+                                            const invRef = invoicesWithOverrides.find((inv: Invoice) => inv.id === tx.invoiceId);
+                                            const rawDate = tx.createdAt ? tx.createdAt.split('T')[0] : '';
+                                            const dateStr = rawDate
+                                                ? parseLocalDate(rawDate).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
+                                                : '—';
+                                            return (
+                                                <div key={tx.id} className="flex items-center justify-between bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-lg px-3 py-2">
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">{dateStr}</span>
+                                                        {invRef && (
+                                                            <span className="text-[10px] text-muted-foreground font-mono truncate">Nota: {invRef.valeryNoteId || invRef.id.substring(0, 8)}</span>
+                                                        )}
+                                                        {tx.paymentMethod && (
+                                                            <span className="text-[9px] text-muted-foreground/70">{tx.paymentMethod}</span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono ml-2 shrink-0">
+                                                        {showBaseDebt ? formatCurrency(tx.amountUsd) : '****'}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="mt-2 flex justify-between items-center px-1">
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total abonado</span>
+                                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                                            {showBaseDebt ? formatCurrency(totalAbonado) : '****'}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
 

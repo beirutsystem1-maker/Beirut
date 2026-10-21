@@ -229,10 +229,17 @@ class MetaNota(BaseModel):
     vencimiento_general: str = ""
     formato: str = "paralela"
 
+class AbonoNota(BaseModel):
+    fecha: str = ""
+    monto_usd: float = 0
+    metodo: str = "Pago"
+    invoice_id: str = ""
+
 class NotaRequest(BaseModel):
     cliente: ClienteNota
     facturas: List[FacturaNota]
     meta: MetaNota
+    abonos: List[AbonoNota] = []
 
 
 @app.post("/api/pdf/nota-cliente",
@@ -254,7 +261,8 @@ async def generar_nota_pdf(payload: NotaRequest):
         ]
         meta_dict = payload.meta.model_dump()
 
-        pdf_bytes = generar_nota_cliente(cliente_dict, facturas_list, meta_dict)
+        abonos_list = [a.model_dump() for a in payload.abonos]
+        pdf_bytes = generar_nota_cliente(cliente_dict, facturas_list, meta_dict, abonos_list)
 
         nombre_archivo = (
             f"estado_cuenta_{payload.cliente.nombre.replace(' ', '_')}.pdf"

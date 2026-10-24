@@ -1,4 +1,4 @@
-import {
+﻿import {
     X, FileText, AlertCircle, Eye, CheckCircle2,
     Loader2, RefreshCw, ChevronDown, ChevronUp, Lock, Unlock, EyeOff, Edit2, Save, Trash2, DollarSign, CheckCircle, Plus
 } from 'lucide-react';
@@ -707,10 +707,10 @@ function GlobalPaymentModal({ client, totalDebt, onClose, onPaymentsConfirmed, r
 
     // ── Cálculo según método ────────────────────────────────────────────────
     const usdBruto   = method === 'ves' ? num / TASA_BCV : 0;
-    // El sistema configura "50%" pero significa descontarle -50% al precio BCV bruto
+    // usdReal: valor informativo con el descuento BDV aplicado (solo para mostrar al usuario)
     const usdReal    = method === 'ves' ? usdBruto * (1 - recargoBCV) : 0;
     const descuento  = method === 'ves'
-        ? Math.min(usdReal, totalDebt)
+        ? Math.min(usdBruto, totalDebt)
         : Math.min(num, totalDebt);
     const nuevaDeuda = Math.max(0, totalDebt - descuento);
 
@@ -753,7 +753,7 @@ function GlobalPaymentModal({ client, totalDebt, onClose, onPaymentsConfirmed, r
             onPaymentsConfirmed(dist);
             const msg = method === 'usd'
                 ? `$${descuento.toFixed(2)} via Efectivo/Zelle registrado`
-                : `Bs ${num.toFixed(2)} = $${usdReal.toFixed(2)} USD real (descuento -${(recargoBCV * 100).toFixed(0)}%) registrado via BDV`;
+                : `Bs ${num.toFixed(2)} = $${usdBruto.toFixed(2)} USD registrado via BDV`;
             setToast(msg);
             setAmount('');
             setTimeout(() => { setToast(null); onClose(); }, 2800);

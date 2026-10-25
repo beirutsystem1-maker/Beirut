@@ -1,6 +1,6 @@
 ﻿import {
     X, FileText, AlertCircle, Eye, CheckCircle2,
-    Loader2, RefreshCw, ChevronDown, ChevronUp, Lock, Unlock, EyeOff, Edit2, Save, Trash2, DollarSign, CheckCircle, Plus
+    Loader2, RefreshCw, ChevronDown, ChevronUp, ChevronRight, Lock, Unlock, EyeOff, Edit2, Save, Trash2, DollarSign, CheckCircle, Plus
 } from 'lucide-react';
 import { useUpdateInvoiceProducts, useDeleteInvoice, useUpdateInvoiceDueDate, useDeleteClient, useClientTransactions } from '../logic/useClients';
 import { useState, useEffect, useCallback } from 'react';
@@ -1016,6 +1016,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
     const [showPaymentModal, setShowPaymentModal] = useState(false);
         const { registerPaymentOnInvoice, updateClient } = useClients();
     const [isEditing, setIsEditing] = useState(false);
+    const [showAbonosDrawer, setShowAbonosDrawer] = useState(false);
 
     // ── Cargar abonos del cliente ──────────────────────────────────────────
     const { data: clientTransactions = [] } = useClientTransactions(client?.id ?? null);
@@ -1493,7 +1494,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                             </div>
                         ) : null}
 
-                        {/* ── Abonos del cliente ── */}
+                        {/* ── Abonos del cliente (Resumen compacto con panel lateral) ── */}
                         {(() => {
                             const abonosActivos = clientTransactions.filter(
                                 (tx: any) => tx.type === 'payment'
@@ -1502,62 +1503,36 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                             const totalAbonado = abonosActivos.reduce((s: number, t: any) => s + t.amountUsd, 0);
                             return (
                                 <div className="mt-3 pt-3 border-t border-border/40">
-                                    <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
-                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                                        Abonos Registrados
-                                    </h4>
-                                    <div className="space-y-1.5">
-                                        {abonosActivos.map((tx: any) => {
-                                            const invRef = (client.invoices || []).find((inv: Invoice) => inv.id === tx.invoiceId)
-                                                || invoicesWithOverrides.find((inv: Invoice) => inv.id === tx.invoiceId);
-                                            const rawDate = tx.createdAt ? tx.createdAt.split('T')[0] : '';
-                                            const dateStr = rawDate
-                                                ? parseLocalDate(rawDate).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
-                                                : '—';
-                                            return (
-                                                <div key={tx.id} className="flex items-center justify-between bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-lg px-3 py-2">
-                                                    <div className="flex flex-col min-w-0">
-                                                        <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">{dateStr}</span>
-                                                        {invRef && (
-                                                            <span className="text-[10px] text-muted-foreground font-mono truncate">Nota: {invRef.valeryNoteId || invRef.id.substring(0, 8)}</span>
-                                                        )}
-                                                        {tx.paymentMethod && (
-                                                            <span className="text-[9px] text-muted-foreground/70">{tx.paymentMethod}</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex items-baseline gap-1.5 ml-2 shrink-0 font-mono">
-                                                        {(() => {
-                                                            const isBs = tx.paymentMethod && (tx.paymentMethod.toLowerCase().includes('bol') || tx.paymentMethod.toLowerCase().includes('bdv') || tx.paymentMethod.toLowerCase().includes('bs'));
-                                                            const rate = Number(tx.metadata?.exchange_rate) || 0;
-                                                            if (isBs && rate > 0) {
-                                                                const amountBs = tx.amountUsd * rate;
-                                                                return (
-                                                                    <>
-                                                                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                                                                            {showBaseDebt ? `Bs. ${amountBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '****'}
-                                                                        </span>
-                                                                        <span className="text-[11px] font-bold text-muted-foreground/80">
-                                                                            {showBaseDebt ? `(${formatCurrency(tx.amountUsd)})` : '(****)'}
-                                                                        </span>
-                                                                    </>
-                                                                );
-                                                            }
-                                                            return (
-                                                                <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                                                                    {showBaseDebt ? formatCurrency(tx.amountUsd) : '****'}
-                                                                </span>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                    <div className="mt-2 flex justify-between items-center px-1">
-                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total abonado</span>
-                                        <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">
-                                            {showBaseDebt ? formatCurrency(totalAbonado) : '****'}
-                                        </span>
+                                    <div
+                                        onClick={() => setShowAbonosDrawer(true)}
+                                        className="group flex items-center justify-between bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/25 rounded-xl px-4 py-3 cursor-pointer transition-all shadow-sm active:scale-[0.99]"
+                                        title="Haz clic para ver el desglose detallado de todos los abonos"
+                                    >
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                                <CheckCircle2 className="w-4 h-4" />
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 tracking-tight flex items-center gap-1.5">
+                                                    Abonos Registrados
+                                                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold">
+                                                        {abonosActivos.length}
+                                                    </span>
+                                                </span>
+                                                <span className="text-[10px] text-muted-foreground group-hover:text-emerald-700/80 dark:group-hover:text-emerald-300/80 transition-colors">
+                                                    Toca para ver el detalle de cada abono
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0 font-mono">
+                                            <div className="flex flex-col items-end">
+                                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Total Acumulado</span>
+                                                <span className="text-base font-black text-emerald-600 dark:text-emerald-400 leading-none">
+                                                    {showBaseDebt ? formatCurrency(totalAbonado) : '****'}
+                                                </span>
+                                            </div>
+                                            <ChevronRight className="w-4 h-4 text-emerald-600/70 group-hover:translate-x-0.5 transition-transform" />
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -1653,6 +1628,101 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                 className="flex-1 h-10 rounded-xl font-bold bg-rose-600 text-white hover:bg-rose-700 text-sm transition-colors flex items-center justify-center gap-2"
                             >
                                 {isDeletingClient ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Eliminar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* ── Panel lateral (Drawer) de Desglose de Abonos ── */}
+            {showAbonosDrawer && createPortal(
+                <div className="fixed inset-0 z-[10000] flex justify-end bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowAbonosDrawer(false)}>
+                    <div
+                        className="relative w-full max-w-[380px] h-[100dvh] bg-card border-l border-border shadow-2xl flex flex-col overflow-hidden animate-slide-left"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header Drawer */}
+                        <div className="px-5 py-4 border-b border-border bg-emerald-500/10 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                    <CheckCircle2 className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-foreground">Historial de Abonos</h3>
+                                    <p className="text-[11px] text-muted-foreground truncate max-w-[220px]">{client.name}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowAbonosDrawer(false)}
+                                className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Subheader Total */}
+                        {(() => {
+                            const abonos = clientTransactions.filter((tx: any) => tx.type === 'payment');
+                            const totalAbonado = abonos.reduce((s: number, t: any) => s + t.amountUsd, 0);
+                            return (
+                                <div className="px-5 py-3 bg-muted/30 border-b border-border flex items-center justify-between shrink-0 font-mono">
+                                    <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider">Total Acumulado</span>
+                                    <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                                        {showBaseDebt ? formatCurrency(totalAbonado) : '****'}
+                                    </span>
+                                </div>
+                            );
+                        })()}
+
+                        {/* Lista de abonos (scrollable) */}
+                        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2.5">
+                            {(() => {
+                                const abonos = clientTransactions.filter((tx: any) => tx.type === 'payment');
+                                if (abonos.length === 0) {
+                                    return (
+                                        <div className="py-12 text-center text-muted-foreground text-xs">
+                                            No hay abonos registrados para este cliente.
+                                        </div>
+                                    );
+                                }
+                                return abonos.map((tx: any) => {
+                                    const rawDate = tx.createdAt ? tx.createdAt.split('T')[0] : '';
+                                    const dateStr = rawDate
+                                        ? parseLocalDate(rawDate).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
+                                        : '—';
+                                    const isBs = tx.paymentMethod && (tx.paymentMethod.toLowerCase().includes('bol') || tx.paymentMethod.toLowerCase().includes('bdv') || tx.paymentMethod.toLowerCase().includes('bs'));
+                                    const rate = Number(tx.metadata?.exchange_rate) || 0;
+                                    const amountBs = rate > 0 ? tx.amountUsd * rate : 0;
+                                    return (
+                                        <div key={tx.id} className="flex items-center justify-between bg-card border border-border/70 rounded-xl px-3.5 py-3 shadow-xs hover:border-emerald-500/30 transition-colors">
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-xs font-bold text-foreground">{dateStr}</span>
+                                                <span className="text-[10px] text-muted-foreground/80 mt-0.5">{tx.paymentMethod || 'Efectivo / Zelle'}</span>
+                                            </div>
+                                            <div className="flex flex-col items-end shrink-0 font-mono">
+                                                <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                                    {showBaseDebt ? `+${formatCurrency(tx.amountUsd)}` : '****'}
+                                                </span>
+                                                {isBs && rate > 0 && showBaseDebt && (
+                                                    <span className="text-[10px] text-muted-foreground font-semibold">
+                                                        Bs. {amountBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                });
+                            })()}
+                        </div>
+
+                        {/* Footer Drawer */}
+                        <div className="px-5 py-3 border-t border-border bg-card shrink-0">
+                            <button
+                                onClick={() => setShowAbonosDrawer(false)}
+                                className="w-full h-9 rounded-xl font-bold bg-muted hover:bg-muted/80 text-foreground text-xs transition-colors"
+                            >
+                                Cerrar Panel
                             </button>
                         </div>
                     </div>

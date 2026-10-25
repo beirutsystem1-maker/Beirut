@@ -2,7 +2,7 @@
     X, FileText, AlertCircle, Eye, CheckCircle2,
     Loader2, RefreshCw, ChevronDown, ChevronUp, ChevronRight, Lock, Unlock, EyeOff, Edit2, Save, Trash2, DollarSign, CheckCircle, Plus
 } from 'lucide-react';
-import { useUpdateInvoiceProducts, useDeleteInvoice, useUpdateInvoiceDueDate, useDeleteClient, useClientTransactions } from '../logic/useClients';
+import { useUpdateInvoiceProducts, useDeleteInvoice, useUpdateInvoiceDueDate, useDeleteClient, useClientTransactions, useDeletePayment } from '../logic/useClients';
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { Client, Invoice } from '../logic/ClientContext';
@@ -1017,6 +1017,10 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
         const { registerPaymentOnInvoice, updateClient } = useClients();
     const [isEditing, setIsEditing] = useState(false);
     const [showAbonosDrawer, setShowAbonosDrawer] = useState(false);
+    const deletePaymentMutation = useDeletePayment();
+    const [paymentToDelete, setPaymentToDelete] = useState<{ id: string; invoiceId: string; amount: number; dateStr: string; desc: string } | null>(null);
+    const [isDeletingPayment, setIsDeletingPayment] = useState(false);
+    const [deletePaymentError, setDeletePaymentError] = useState<string | null>(null);
 
     // ── Cargar abonos del cliente ──────────────────────────────────────────
     const { data: clientTransactions = [] } = useClientTransactions(client?.id ?? null);
@@ -1635,11 +1639,11 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                 document.body
             )}
 
-            {/* ── Panel lateral (Drawer) de Desglose de Abonos ── */}
+            {/* ── Panel lateral (Drawer) de Desglose de Abonos Agrupados por Fecha ── */}
             {showAbonosDrawer && createPortal(
                 <div className="fixed inset-0 z-[10000] flex justify-end bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowAbonosDrawer(false)}>
                     <div
-                        className="relative w-full max-w-[380px] h-[100dvh] bg-card border-l border-border shadow-2xl flex flex-col overflow-hidden animate-slide-left"
+                        className="relative w-full max-w-[420px] h-[100dvh] bg-card border-l border-border shadow-2xl flex flex-col overflow-hidden animate-slide-left"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header Drawer */}
@@ -1650,7 +1654,7 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                 </div>
                                 <div>
                                     <h3 className="text-sm font-bold text-foreground">Historial de Abonos</h3>
-                                    <p className="text-[11px] text-muted-foreground truncate max-w-[220px]">{client.name}</p>
+                                    <p className="text-[11px] text-muted-foreground truncate max-w-[240px]">{client.name}</p>
                                 </div>
                             </div>
                             <button
@@ -1675,40 +1679,108 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                             );
                         })()}
 
-                        {/* Lista de abonos (scrollable) */}
-                        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2.5">
+                        {/* Lista de abonos agrupados por fecha (scrollable) */}
+                        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3.5">
                             {(() => {
-                                const abonos = clientTransactions.filter((tx: any) => tx.type === 'payment');
-                                if (abonos.length === 0) {
+                                const allPayments = clientTransactions.filter((tx: any) => tx.type === 'payment');
+                                if (allPayments.length === 0) {
                                     return (
                                         <div className="py-12 text-center text-muted-foreground text-xs">
                                             No hay abonos registrados para este cliente.
                                         </div>
                                     );
                                 }
-                                return abonos.map((tx: any) => {
-                                    const rawDate = tx.createdAt ? tx.createdAt.split('T')[0] : '';
-                                    const dateStr = rawDate
-                                        ? parseLocalDate(rawDate).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
-                                        : '—';
-                                    const isBs = tx.paymentMethod && (tx.paymentMethod.toLowerCase().includes('bol') || tx.paymentMethod.toLowerCase().includes('bdv') || tx.paymentMethod.toLowerCase().includes('bs'));
-                                    const rate = Number(tx.metadata?.exchange_rate) || 0;
-                                    const amountBs = rate > 0 ? tx.amountUsd * rate : 0;
+
+                                // Agrupar pagos por fecha exacta (YYYY-MM-DD)
+                                const groupsMap = new Map<string, any[]>();
+                                allPayments.forEach((p: any) => {
+                                    const rawDate = p.createdAt ? p.createdAt.split('T')[0] : 'sin-fecha';
+                                    if (!groupsMap.has(rawDate)) groupsMap.set(rawDate, []);
+                                    groupsMap.get(rawDate)!.push(p);
+                                });
+
+                                const sortedDates = Array.from(groupsMap.keys()).sort((a, b) => b.localeCompare(a));
+
+                                return sortedDates.map((dateKey) => {
+                                    const items = groupsMap.get(dateKey)!;
+                                    const groupTotalUsd = items.reduce((sum, item) => sum + (Number(item.amountUsd) || 0), 0);
+                                    const dateStr = dateKey !== 'sin-fecha'
+                                        ? parseLocalDate(dateKey).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
+                                        : 'Fecha no registrada';
+
+                                    const methods = Array.from(new Set(items.map((i: any) => i.paymentMethod || 'Efectivo / Zelle'))).join(', ');
+
+                                    // Notas culminadas / abonadas en este día
+                                    const paidNotesInfo = items.map((p: any) => {
+                                        const inv = (client.invoices || []).find((i: Invoice) => i.id === p.invoiceId)
+                                            || invoicesWithOverrides.find((i: Invoice) => i.id === p.invoiceId);
+                                        const noteId = inv?.valeryNoteId || (p.invoiceId ? p.invoiceId.substring(0, 8) : 'N/A');
+                                        const isFullySettled = inv ? inv.balance <= 0 : false;
+                                        return {
+                                            paymentId: p.id,
+                                            invoiceId: p.invoiceId,
+                                            noteId,
+                                            amount: p.amountUsd,
+                                            isFullySettled
+                                        };
+                                    });
+
                                     return (
-                                        <div key={tx.id} className="flex items-center justify-between bg-card border border-border/70 rounded-xl px-3.5 py-3 shadow-xs hover:border-emerald-500/30 transition-colors">
-                                            <div className="flex flex-col min-w-0">
-                                                <span className="text-xs font-bold text-foreground">{dateStr}</span>
-                                                <span className="text-[10px] text-muted-foreground/80 mt-0.5">{tx.paymentMethod || 'Efectivo / Zelle'}</span>
-                                            </div>
-                                            <div className="flex flex-col items-end shrink-0 font-mono">
-                                                <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                                                    {showBaseDebt ? `+${formatCurrency(tx.amountUsd)}` : '****'}
-                                                </span>
-                                                {isBs && rate > 0 && showBaseDebt && (
-                                                    <span className="text-[10px] text-muted-foreground font-semibold">
-                                                        Bs. {amountBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        <div key={dateKey} className="bg-card border border-border/80 rounded-2xl p-4 shadow-xs space-y-3">
+                                            {/* Cabecera del día unificado */}
+                                            <div className="flex items-start justify-between gap-2 border-b border-border/40 pb-2.5">
+                                                <div>
+                                                    <span className="text-xs font-bold text-foreground block">{dateStr}</span>
+                                                    <span className="text-[10px] text-muted-foreground">{methods}</span>
+                                                </div>
+                                                <div className="text-right font-mono">
+                                                    <span className="text-base font-black text-emerald-600 dark:text-emerald-400 block leading-none">
+                                                        {showBaseDebt ? `+${formatCurrency(groupTotalUsd)}` : '****'}
                                                     </span>
-                                                )}
+                                                    <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider">
+                                                        {items.length === 1 ? '1 abono' : `${items.length} notas cubiertas`}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Desglose de notas culminadas / abonadas */}
+                                            <div className="space-y-1.5 pt-0.5">
+                                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                                                    Facturas aplicadas ese día:
+                                                </p>
+                                                {paidNotesInfo.map((note) => (
+                                                    <div key={note.paymentId} className="flex items-center justify-between bg-muted/30 hover:bg-muted/50 rounded-lg px-2.5 py-1.5 transition-colors text-[11px]">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <span className="font-mono font-bold text-foreground">Nota {note.noteId}</span>
+                                                            {note.isFullySettled && (
+                                                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
+                                                                    Culminada ✓
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 shrink-0 font-mono">
+                                                            <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                                                {showBaseDebt ? `+${formatCurrency(note.amount)}` : '****'}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setDeletePaymentError(null);
+                                                                    setPaymentToDelete({
+                                                                        id: note.paymentId,
+                                                                        invoiceId: note.invoiceId,
+                                                                        amount: note.amount,
+                                                                        dateStr,
+                                                                        desc: `Nota ${note.noteId} (${formatCurrency(note.amount)})`
+                                                                    });
+                                                                }}
+                                                                className="p-1 rounded-md text-muted-foreground/50 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                                                title="Eliminar abono y restituir a la deuda"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     );
@@ -1717,12 +1789,80 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                         </div>
 
                         {/* Footer Drawer */}
-                        <div className="px-5 py-3 border-t border-border bg-card shrink-0">
+                        <div className="px-5 py-3.5 border-t border-border bg-card shrink-0">
                             <button
                                 onClick={() => setShowAbonosDrawer(false)}
                                 className="w-full h-9 rounded-xl font-bold bg-muted hover:bg-muted/80 text-foreground text-xs transition-colors"
                             >
-                                Cerrar Panel
+                                Cerrar Historial
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* ── Modal de Confirmación para Eliminar Abono ── */}
+            {paymentToDelete && createPortal(
+                <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+                    <div
+                        className="bg-card border border-border rounded-2xl shadow-2xl p-6 max-w-[340px] w-full animate-scale-in flex flex-col items-center text-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="w-12 h-12 bg-rose-50 dark:bg-rose-950/30 text-rose-500 rounded-2xl flex items-center justify-center mb-3">
+                            <Trash2 className="w-6 h-6" />
+                        </div>
+                        <h3 className="font-bold text-base text-foreground mb-1">¿Eliminar este Abono?</h3>
+                        <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+                            Al eliminar este abono de <strong className="text-foreground">{formatCurrency(paymentToDelete.amount)}</strong>, el monto pasará <strong className="text-rose-500">directamente a sumarse de vuelta a la deuda</strong> del cliente.
+                        </p>
+                        <div className="w-full bg-muted/40 rounded-xl px-3 py-2 text-xs font-mono font-medium text-foreground mb-4">
+                            {paymentToDelete.desc}
+                        </div>
+
+                        {deletePaymentError && (
+                            <div className="mb-3 w-full px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-medium">
+                                {deletePaymentError}
+                            </div>
+                        )}
+
+                        <div className="flex gap-2.5 w-full">
+                            <button
+                                onClick={() => { if (!isDeletingPayment) setPaymentToDelete(null); }}
+                                disabled={isDeletingPayment}
+                                className="flex-1 h-9 rounded-xl font-bold bg-muted text-muted-foreground hover:bg-muted/80 text-xs transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    setIsDeletingPayment(true);
+                                    setDeletePaymentError(null);
+                                    try {
+                                        await deletePaymentMutation.mutateAsync({
+                                            paymentId: paymentToDelete.id,
+                                            clientId: client.id,
+                                            invoiceId: paymentToDelete.invoiceId,
+                                            amount: paymentToDelete.amount
+                                        });
+                                        // Actualizar overrides locales inmediatamente
+                                        setBalanceOverrides((prev) => {
+                                            const current = prev[paymentToDelete.invoiceId] !== undefined
+                                                ? prev[paymentToDelete.invoiceId]
+                                                : (client.invoices || []).find((i: Invoice) => i.id === paymentToDelete.invoiceId)?.balance || 0;
+                                            return { ...prev, [paymentToDelete.invoiceId]: current + paymentToDelete.amount };
+                                        });
+                                        setPaymentToDelete(null);
+                                    } catch (err: any) {
+                                        setDeletePaymentError(err.message || 'Error al eliminar abono');
+                                    } finally {
+                                        setIsDeletingPayment(false);
+                                    }
+                                }}
+                                disabled={isDeletingPayment}
+                                className="flex-1 h-9 rounded-xl font-bold bg-rose-600 hover:bg-rose-700 text-white text-xs transition-colors flex items-center justify-center gap-1.5"
+                            >
+                                {isDeletingPayment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Eliminar'}
                             </button>
                         </div>
                     </div>

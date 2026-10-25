@@ -482,6 +482,73 @@ export function useAppendExcelInvoice() {
     });
 }
 
+export function useDeletePayment() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (payload: {
+            paymentId: string;
+            clientId: string;
+            invoiceId: string;
+            amount: number;
+        }) => {
+            if (USE_SUPABASE_DIRECT && supabase) {
+                // 1. Obtener la factura actual para restaurar el saldo
+                const { data: inv, error: fetchErr } = await supabase
+                    .from('invoices')
+                    .select('id, balance, total_amount, due_date')
+                    .eq('id', payload.invoiceId)
+                    .single();
+
+                if (fetchErr) throw fetchErr;
+                if (!inv) throw new Error(`Factura ${payload.invoiceId} no encontrada`);
+
+                // 2. Restaurar saldo: sumar de nuevo el monto del abono eliminado
+                const newBalance = Math.min(Number(inv.total_amount), Number(inv.balance) + Number(payload.amount));
+                const newStatus = newBalance <= 0 ? 'pagado' : (isOverdue(inv.due_date) ? 'en mora' : 'pendiente');
+
+                // 3. Eliminar el registro en payments
+                const { error: delErr } = await supabase
+                    .from('payments')
+                    .delete()
+                    .eq('id', payload.paymentId);
+
+                if (delErr) throw delErr;
+
+                // 4. Actualizar la factura con el nuevo saldo restaurado
+                const { error: updErr } = await supabase
+                    .from('invoices')
+                    .update({
+                        balance: newBalance,
+                        status: newStatus,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', payload.invoiceId);
+
+                if (updErr) throw updErr;
+                return { success: true };
+            } else {
+                const res = await fetch(`${SERVER_URL}/payments/${payload.paymentId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.error || 'Error eliminando abono');
+                }
+                return await res.json();
+            }
+        },
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['clients'] });
+            queryClient.invalidateQueries({ queryKey: ['invoices', variables.clientId] });
+            queryClient.invalidateQueries({ queryKey: ['client', 'full', variables.clientId] });
+            queryClient.invalidateQueries({ queryKey: ['transactions', variables.clientId] });
+        },
+    });
+}
+
 export function useRegisterPayment() {
     const queryClient = useQueryClient();
 

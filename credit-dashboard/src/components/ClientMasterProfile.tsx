@@ -1493,15 +1493,10 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                             </div>
                         ) : null}
 
-                        {/* ── Abonos del cliente (facturas no archivadas) ── */}
+                        {/* ── Abonos del cliente ── */}
                         {(() => {
-                            const activeInvIds = new Set(
-                                invoicesWithOverrides
-                                    .filter((inv: Invoice) => inv.balance > 0)
-                                    .map((inv: Invoice) => inv.id)
-                            );
                             const abonosActivos = clientTransactions.filter(
-                                (tx: any) => tx.type === 'payment' && activeInvIds.has(tx.invoiceId)
+                                (tx: any) => tx.type === 'payment'
                             );
                             if (abonosActivos.length === 0) return null;
                             const totalAbonado = abonosActivos.reduce((s: number, t: any) => s + t.amountUsd, 0);
@@ -1513,7 +1508,8 @@ export function ClientMasterProfile({ client, onClose }: ClientMasterProfileProp
                                     </h4>
                                     <div className="space-y-1.5">
                                         {abonosActivos.map((tx: any) => {
-                                            const invRef = invoicesWithOverrides.find((inv: Invoice) => inv.id === tx.invoiceId);
+                                            const invRef = (client.invoices || []).find((inv: Invoice) => inv.id === tx.invoiceId)
+                                                || invoicesWithOverrides.find((inv: Invoice) => inv.id === tx.invoiceId);
                                             const rawDate = tx.createdAt ? tx.createdAt.split('T')[0] : '';
                                             const dateStr = rawDate
                                                 ? parseLocalDate(rawDate).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })

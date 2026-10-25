@@ -498,8 +498,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
             console.error("Error fetching payments for WA/PDF", e);
         }
 
-        const activeInvoiceIds = new Set(activeInvoices.map(inv => inv.id));
-        const relevantPayments = allPayments.filter(p => activeInvoiceIds.has(p.invoiceId || p.invoice_id));
+        const relevantPayments = allPayments;
 
         const balanceBase = activeInvoices.reduce((acc, inv) => acc + inv.balance, 0);
         
@@ -683,11 +682,25 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         if (relevantPayments.length > 0) {
             msg += `${SEP}\n`;
             msg += `*PAGOS RECIBIDOS*\n`;
-            relevantPayments.forEach(p => {
-                const pAmountUsd = p.amountUsd || p.amount || 0;
-                const pAmountDisp = isBcv ? pAmountUsd * tasaBCV : pAmountUsd;
-                const pDate = p.createdAt || p.payment_date || '';
-                msg += `  ${EM.bullet} ${pDate ? fmtDate(pDate.split('T')[0]) : '--'} \u00B7 ${p.paymentMethod || p.method || 'Pago'} .... ${curSym}${fmtNum(pAmountDisp)}\n`;
+            // Agrupar pagos por fecha exacta para mostrar un solo total por dia
+            const waGroups = new Map<string, { totalUsd: number; methods: Set<string> }>();
+            relevantPayments.forEach((p: any) => {
+                const dateKey = (p.createdAt || p.payment_date || '').split('T')[0] || 'sin-fecha';
+                const amt = p.amountUsd || p.amount || 0;
+                const m = p.paymentMethod || p.method || 'Pago';
+                if (!waGroups.has(dateKey)) {
+                    waGroups.set(dateKey, { totalUsd: 0, methods: new Set() });
+                }
+                const g = waGroups.get(dateKey)!;
+                g.totalUsd += amt;
+                g.methods.add(m);
+            });
+
+            Array.from(waGroups.keys()).sort((a, b) => b.localeCompare(a)).forEach(dateKey => {
+                const g = waGroups.get(dateKey)!;
+                const pAmountDisp = isBcv ? g.totalUsd * tasaBCV : g.totalUsd;
+                const mLabel = Array.from(g.methods).join(', ');
+                msg += `  ${EM.bullet} ${dateKey !== 'sin-fecha' ? fmtDate(dateKey) : '--'} \u00B7 ${mLabel} .... ${curSym}${fmtNum(pAmountDisp)}\n`;
             });
             msg += `  L Total pagado: *${curSym}${fmtNum(totalPaidDisp)}*\n\n`;
         }

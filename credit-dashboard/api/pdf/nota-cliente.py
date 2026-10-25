@@ -196,26 +196,57 @@ def generar_nota_cliente(cliente: dict, facturas: list, meta: dict, abonos: list
         story.append(HRFlowable(width="100%", thickness=0.3, color=GRIS_CLAR, spaceBefore=3 * mm, spaceAfter=3 * mm))
         story.append(Paragraph("ABONOS REGISTRADOS", ParagraphStyle("abonos_titulo", fontName=FONT_BOLD, fontSize=FS_ITEM, textColor=GRIS_OSC, alignment=TA_LEFT, spaceAfter=2 * mm)))
 
-        total_abonado = 0.0
+        # Agrupar abonos por fecha exacta
+        abonos_por_fecha = {}
         for abono in abonos:
-            fecha_ab = _fmt_fecha(abono.get("fecha", ""))
-            monto_usd = float(abono.get("monto_usd", 0))
-            metodo = abono.get("metodo", "Pago")
-            tasa_abono = float(abono.get("tasa", 0))
+            f_raw = abono.get("fecha", "")
+            if f_raw not in abonos_por_fecha:
+                abonos_por_fecha[f_raw] = {
+                    "monto_usd": 0.0,
+                    "metodos": set(),
+                    "monto_bs": 0.0,
+                    "tiene_bs": False,
+                }
+            m_usd = float(abono.get("monto_usd", 0))
+            met = abono.get("metodo", "Pago")
+            tasa_ab = float(abono.get("tasa", 0))
+            abonos_por_fecha[f_raw]["monto_usd"] += m_usd
+            abonos_por_fecha[f_raw]["metodos"].add(met)
+            es_pago_bs = any(k in met.lower() for k in ["bol", "bdv", "bs"])
+            if es_pago_bs and tasa_ab > 0:
+                abonos_por_fecha[f_raw]["monto_bs"] += (m_usd * tasa_ab)
+                abonos_por_fecha[f_raw]["tiene_bs"] = True
+
+        total_abonado = 0.0
+        for f_raw in sorted(abonos_por_fecha.keys(), reverse=True):
+            grp = abonos_por_fecha[f_raw]
+            fecha_ab = _fmt_fecha(f_raw)
+            monto_usd = grp["monto_usd"]
+            metodo = ", ".join(sorted(grp["metodos"])) if grp["metodos"] else "Pago"
             total_abonado += monto_usd
 
-            es_pago_bs = any(k in metodo.lower() for k in ["bol", "bdv", "bs"])
-            if es_pago_bs and tasa_abono > 0:
-                monto_bs = monto_usd * tasa_abono
-                monto_txt = f"Bs. {monto_bs:,.2f}  (${monto_usd:,.2f})"
+            if grp["tiene_bs"] and grp["monto_bs"] > 0:
+                monto_txt = f"Bs. {grp['monto_bs']:,.2f}  (${monto_usd:,.2f})"
             elif es_bcv and tasa_dia:
                 monto_txt = f"Bs. {monto_usd * float(tasa_dia):,.2f}  (${monto_usd:,.2f})"
             else:
                 monto_txt = _fmt_usd(monto_usd)
 
             ab_data = [[
-                Paragraph(f"{fecha_ab}  ·  {metodo}", ParagraphStyle("ab_desc", fontName=FONT, fontSize=FS_ITEM, textColor=NEGRO, alignment=TA_LEFT)),
-                Paragraph(monto_txt, ParagraphStyle("ab_monto", fontName=FONT_BOLD, fontSize=FS_ITEM, textColor=GRIS_OSC, alignment=TA_RIGHT))
+                Paragraph(f"{fecha_ab}  ·  {metodo}", ParagraphStyle(
+                    "ab_desc",
+                    fontName=FONT,
+                    fontSize=FS_ITEM,
+                    textColor=NEGRO,
+                    alignment=TA_LEFT,
+                )),
+                Paragraph(monto_txt, ParagraphStyle(
+                    "ab_monto",
+                    fontName=FONT_BOLD,
+                    fontSize=FS_ITEM,
+                    textColor=GRIS_OSC,
+                    alignment=TA_RIGHT,
+                )),
             ]]
             t_ab = Table(ab_data, colWidths=[ancho_content * 0.65, ancho_content * 0.35])
             t_ab.setStyle(TableStyle([

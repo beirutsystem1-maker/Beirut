@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import {
     MessageCircle, FileText, ChevronRight,
     UserPlus, User, Phone, Mail,
-    CheckCircle2, AlertCircle, MapPin, Download
+    CheckCircle2, AlertCircle, MapPin, Download, X
 } from 'lucide-react';
 import { useClients, calculateClientDebt, calculateClientStatus } from '../logic/ClientContext';
 import { SERVER_URL } from '../logic/useClients';
@@ -379,6 +379,13 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         action: 'whatsapp' | 'pdf';
     }
     const [rateConfirmData, setRateConfirmData] = useState<RateConfirmData | null>(null);
+    const [selectedPaymentIds, setSelectedPaymentIds] = useState<string[]>([]);
+
+    const togglePaymentSelection = (pId: string) => {
+        setSelectedPaymentIds(prev =>
+            prev.includes(pId) ? prev.filter(id => id !== pId) : [...prev, pId]
+        );
+    };
     
     // Always derive the actual selected client from the freshest `clients` array
     const selectedClient = useMemo(() => {
@@ -507,6 +514,8 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         const surchargePercent = surchargeStr !== null && surchargeStr !== '' ? parseFloat(surchargeStr) : 30;
         const factor = 1 + surchargePercent / 100;
 
+        setSelectedPaymentIds(relevantPayments.map((p: any, idx: number) => String(p.id ?? `idx-${idx}`)));
+
         setRateConfirmData({
             client,
             deudaParalela: balanceBase,
@@ -520,6 +529,9 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
     const handleExportAction = async (rateMode: 'bcv' | 'paralela') => {
         if (!rateConfirmData) return;
         const { client, deudaBCV, deudaParalela, activeInvoices, relevantPayments, action } = rateConfirmData;
+        const filteredPayments = relevantPayments.filter((p: any, idx: number) =>
+            selectedPaymentIds.includes(String(p.id ?? `idx-${idx}`))
+        );
 
         const EM = { bullet: '-' };
         const SEP = '---------------------';
@@ -573,7 +585,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                         total_con_recargo: totalConRecargo
                     };
                 }),
-                abonos: relevantPayments.map((p: any) => ({
+                abonos: filteredPayments.map((p: any) => ({
                     fecha: (p.createdAt || p.payment_date || '').split('T')[0],
                     monto_usd: p.amountUsd || p.amount || 0,
                     metodo: p.paymentMethod || p.method || 'Pago',
@@ -630,7 +642,7 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
         const fmtLongDate = (d: Date) => d.toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' });
 
         const todayDate = new Date();
-        const totalPaidUsd = relevantPayments.reduce((acc, p) => acc + (p.amountUsd || p.amount || 0), 0);
+        const totalPaidUsd = filteredPayments.reduce((acc, p) => acc + (p.amountUsd || p.amount || 0), 0);
         // We display payments in the chosen currency at current rate
         const totalPaidDisp = isBcv ? totalPaidUsd * tasaBCV : totalPaidUsd;
 
@@ -679,12 +691,12 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
             msg += `  L Total: *${curSym}${fmtNum(totalDisp)}*\n\n`;
         });
 
-        if (relevantPayments.length > 0) {
+        if (filteredPayments.length > 0) {
             msg += `${SEP}\n`;
             msg += `*PAGOS RECIBIDOS*\n`;
             // Agrupar pagos por fecha exacta para mostrar un solo total por dia
             const waGroups = new Map<string, { totalUsd: number; methods: Set<string> }>();
-            relevantPayments.forEach((p: any) => {
+            filteredPayments.forEach((p: any) => {
                 const dateKey = (p.createdAt || p.payment_date || '').split('T')[0] || 'sin-fecha';
                 const amt = p.amountUsd || p.amount || 0;
                 const m = p.paymentMethod || p.method || 'Pago';
@@ -700,20 +712,21 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                 const g = waGroups.get(dateKey)!;
                 const pAmountDisp = isBcv ? g.totalUsd * tasaBCV : g.totalUsd;
                 const mLabel = Array.from(g.methods).join(', ');
-                msg += `  ${EM.bullet} ${dateKey !== 'sin-fecha' ? fmtDate(dateKey) : '--'} \u00B7 ${mLabel} .... ${curSym}${fmtNum(pAmountDisp)}\n`;
+                msg += `  ${EM.bullet} ${dateKey !== 'sin-fecha' ? fmtDate(dateKey) : '--'} · ${mLabel} .... ${curSym}${fmtNum(pAmountDisp)}\n`;
             });
-            msg += `  L Total pagado: *${curSym}${fmtNum(totalPaidDisp)}*\n\n`;
+            msg += `  L Total abonos en reporte: *${curSym}${fmtNum(totalPaidDisp)}*\n\n`;
         }
 
         msg += `${SEP}\n`;
         msg += `*RESUMEN*\n`;
-        msg += `  Total deuda:     ${curSym}${fmtNum(deudaDisp + totalPaidDisp)}\n`;
-        if (totalPaidDisp > 0) msg += `  Cancelado:       ${curSym}${fmtNum(totalPaidDisp)}\n`;
+        if (filteredPayments.length > 0) {
+            msg += `  Abonos en reporte: ${curSym}${fmtNum(totalPaidDisp)}\n`;
+        }
         
         if (deudaDisp > 0) {
-            msg += `  *Saldo pendiente: ${curSym}${fmtNum(deudaDisp)}*\n\n`;
+            msg += `  *Saldo pendiente actual: ${curSym}${fmtNum(deudaDisp)}*\n\n`;
         } else {
-            msg += `  *A su favor:     ${curSym}${fmtNum(Math.abs(deudaDisp))}*\n\n`;
+            msg += `  *A su favor:             ${curSym}${fmtNum(Math.abs(deudaDisp))}*\n\n`;
         }
 
         if (isBcv) {
@@ -996,54 +1009,158 @@ export function ClientList({ onViewChange, searchTerm = '' }: { onViewChange?: (
                 onViewChange={onViewChange}
             />
 
-            {/* Rate Selection Modal for WhatsApp */}
+            {/* Modal para Selección de Abonos y Formato (WhatsApp / PDF) */}
             {rateConfirmData && (
-                <div style={{
-                    position: 'fixed', inset: 0, 
-                    backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
-                }}>
-                    <div style={{
-                        background: '#FFF', borderRadius: 16, padding: 24, width: 320,
-                        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)'
-                    }}>
-                        <p style={{ fontSize: 13, fontWeight: 500, color: '#1A1B2E', marginBottom: 16 }}>
-                            ¿Qué formato utilizar para la acción?
-                        </p>
-
-                        {/* Paralela — opción principal, monto en USD */}
-                        <button onClick={() => handleExportAction('paralela')}
-                            style={{
-                                background: '#EEF2FF', color: '#3730A3', border: '0.5px solid #C7D2FE',
-                                borderRadius: 8, padding: '10px 14px', width: '100%', marginBottom: 8, cursor: 'pointer',
-                                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left'
-                            }}>
-                            <div style={{ fontSize: 13, fontWeight: 600 }}>Tasa Paralela · ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(rateConfirmData.deudaParalela)}</div>
-                            <div style={{ fontSize: 11, marginTop: 2, color: '#4F46E5' }}>
-                                Deuda en USD · sin conversión a Bs
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 animate-fade-in">
+                    <div className="bg-card text-foreground border border-border/80 rounded-2xl p-5 sm:p-6 w-full max-w-md shadow-2xl space-y-4 max-h-[92vh] flex flex-col">
+                        {/* Header */}
+                        <div className="flex items-center justify-between pb-3 border-b border-border/50">
+                            <div>
+                                <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+                                    {rateConfirmData.action === 'whatsapp' ? (
+                                        <>
+                                            <span className="w-2.5 h-2.5 rounded-full bg-[#25D366]"></span>
+                                            Enviar por WhatsApp
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                                            Descargar Estado de Cuenta (PDF)
+                                        </>
+                                    )}
+                                </h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Cliente: <strong className="text-foreground">{rateConfirmData.client.name}</strong>
+                                </p>
                             </div>
-                        </button>
+                            <button
+                                onClick={() => setRateConfirmData(null)}
+                                className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors text-xs"
+                                title="Cerrar"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
 
-                        {/* BCV — opción secundaria, monto principal en Bolívares */}
-                        <button onClick={() => handleExportAction('bcv')}
-                            style={{
-                                background: '#FAEEDA', color: '#854F0B', border: '0.5px solid #BA7517',
-                                borderRadius: 8, padding: '10px 14px', width: '100%', marginBottom: 12, cursor: 'pointer',
-                                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left'
-                            }}>
-                            <div style={{ fontSize: 13, fontWeight: 500 }}>Tasa BCV · Bs. {new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(tasaBCV * rateConfirmData.deudaBCV)}</div>
-                            <div style={{ fontSize: 11, marginTop: 2, color: '#BA7517' }}>
-                                Equivalente a ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(rateConfirmData.deudaBCV)} (monto con recargo)
+                        {/* Abonos Selector */}
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="font-semibold text-foreground">
+                                    Abonos a incluir ({selectedPaymentIds.length} de {rateConfirmData.relevantPayments.length}):
+                                </span>
+                                {rateConfirmData.relevantPayments.length > 0 && (
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedPaymentIds(rateConfirmData.relevantPayments.map((p, idx) => String(p.id ?? `idx-${idx}`)))}
+                                            className="px-2 py-0.5 rounded text-[11px] font-medium bg-muted hover:bg-muted/80 text-foreground transition-colors"
+                                        >
+                                            Todos
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedPaymentIds(rateConfirmData.relevantPayments.length > 0 ? [String(rateConfirmData.relevantPayments[0].id ?? 'idx-0')] : [])}
+                                            className="px-2 py-0.5 rounded text-[11px] font-medium bg-muted hover:bg-muted/80 text-foreground transition-colors"
+                                        >
+                                            Último
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedPaymentIds([])}
+                                            className="px-2 py-0.5 rounded text-[11px] font-medium bg-muted hover:bg-muted/80 text-foreground transition-colors"
+                                        >
+                                            Ninguno
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-                        </button>
 
-                        <button onClick={() => setRateConfirmData(null)}
-                            style={{
-                                background: 'transparent', border: 'none', color: '#888780',
-                                fontSize: 12, cursor: 'pointer', width: '100%'
-                            }}>
-                            Cancelar
-                        </button>
+                            {rateConfirmData.relevantPayments.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic bg-muted/30 p-2.5 rounded-lg text-center">
+                                    Este cliente no posee abonos registrados.
+                                </p>
+                            ) : (
+                                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 border border-border/50 rounded-xl p-2 bg-muted/20 scrollbar-thin">
+                                    {rateConfirmData.relevantPayments.map((p, idx) => {
+                                        const pId = String(p.id ?? `idx-${idx}`);
+                                        const isSelected = selectedPaymentIds.includes(pId);
+                                        const rawDate = (p.createdAt || p.payment_date || '').split('T')[0];
+                                        const dateLabel = rawDate ? parseLocalDate(rawDate).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Sin fecha';
+                                        const amt = Number(p.amountUsd ?? p.amount ?? 0);
+                                        const method = p.paymentMethod || p.method || 'Pago';
+
+                                        return (
+                                            <div
+                                                key={pId}
+                                                onClick={() => togglePaymentSelection(pId)}
+                                                className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-all border ${
+                                                    isSelected
+                                                        ? 'bg-primary/10 border-primary/40 text-foreground font-medium'
+                                                        : 'bg-card/60 border-border/40 text-muted-foreground hover:bg-muted/40'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => {}} // Controlled by container click
+                                                        className="rounded text-primary focus:ring-0 cursor-pointer pointer-events-none"
+                                                    />
+                                                    <div>
+                                                        <div className="text-foreground leading-tight">{dateLabel}</div>
+                                                        <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">{method}</div>
+                                                    </div>
+                                                </div>
+                                                <span className="font-bold text-foreground font-mono">
+                                                    ${amt.toFixed(2)}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Tasa Selector */}
+                        <div className="space-y-2 pt-2 border-t border-border/50">
+                            <p className="text-xs font-semibold text-foreground">
+                                Selecciona el formato de conversión:
+                            </p>
+
+                            <button
+                                onClick={() => handleExportAction('paralela')}
+                                className="w-full text-left p-3 rounded-xl border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/70 dark:bg-indigo-950/20 hover:bg-indigo-100/70 dark:hover:bg-indigo-950/40 transition-all flex flex-col group cursor-pointer"
+                            >
+                                <div className="text-xs font-bold text-indigo-700 dark:text-indigo-400 group-hover:underline">
+                                    Tasa Paralela · ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(rateConfirmData.deudaParalela)}
+                                </div>
+                                <div className="text-[11px] text-indigo-600/80 dark:text-indigo-400/80 mt-0.5">
+                                    Deuda en USD · sin conversión a Bs
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => handleExportAction('bcv')}
+                                className="w-full text-left p-3 rounded-xl border border-amber-300 dark:border-amber-800/50 bg-amber-50/70 dark:bg-amber-950/20 hover:bg-amber-100/70 dark:hover:bg-amber-950/40 transition-all flex flex-col group cursor-pointer"
+                            >
+                                <div className="text-xs font-bold text-amber-800 dark:text-amber-400 group-hover:underline">
+                                    Tasa BCV · Bs. {new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(tasaBCV * rateConfirmData.deudaBCV)}
+                                </div>
+                                <div className="text-[11px] text-amber-700/80 dark:text-amber-400/80 mt-0.5">
+                                    Equivalente a ${new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2 }).format(rateConfirmData.deudaBCV)} (monto con recargo)
+                                </div>
+                            </button>
+                        </div>
+
+                        {/* Footer Cancel */}
+                        <div className="pt-1">
+                            <button
+                                onClick={() => setRateConfirmData(null)}
+                                className="w-full py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors text-center cursor-pointer"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
